@@ -7,22 +7,41 @@ interface UserTypeOption {
   icon: string;
 }
 
+interface GenderOption {
+  value: number;
+  text: string;
+}
+
 // Elementos del formulario reactivos
+const cui = ref('')
+const nit = ref('')
 const firstName = ref('')
 const lastName = ref('')
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const phone = ref('')
+const birthDate = ref('')
+const genderId = ref<number | null>(null)
 const userType = ref<number | null>(null)
 const showPassword = ref(false)
 const loading = ref(false)
+
+// Mensajes de estado
+const successMessage = ref('')
+const errorMessage = ref('')
+const formRef = ref(null)
 
 const userTypeOptions: UserTypeOption[] = [
   { value: 1, text: 'Cliente', icon: 'mdi-account' },
   { value: 2, text: 'Proveedor', icon: 'mdi-truck-delivery' },
   { value: 3, text: 'Empleado', icon: 'mdi-account-tie' },
   { value: 4, text: 'Especialista', icon: 'mdi-account-wrench' }
+]
+
+const genderOptions: GenderOption[] = [
+  { value: 1, text: 'Masculino' },
+  { value: 2, text: 'Femenino' }
 ]
 
 const rules = reactive({
@@ -36,43 +55,124 @@ const rules = reactive({
   phone: (value: string) => {
     const pattern = /^[0-9]{8,}$/
     return pattern.test(value) || 'Número de teléfono inválido (mínimo 8 dígitos)'
+  },
+  cui: (value: string) => {
+    const pattern = /^[0-9]{13}$/
+    return pattern.test(value) || 'CUI debe tener 13 dígitos'
+  },
+  nit: (value: string) => {
+    const pattern = /^[0-9]{8,}$/
+    return pattern.test(value) || 'NIT inválido (mínimo 8 dígitos)'
+  },
+  birthDate: (value: string) => {
+    if (!value) return 'La fecha de nacimiento es requerida'
+    const today = new Date()
+    const birth = new Date(value)
+    const age = today.getFullYear() - birth.getFullYear()
+    return age >= 18 || 'Debe ser mayor de 18 años'
   }
 })
 
 const isFormValid = computed(() => {
-  return firstName.value && 
+  return cui.value && 
+         nit.value &&
+         firstName.value && 
          lastName.value && 
          username.value && 
          email.value && 
          password.value && 
          phone.value && 
+         birthDate.value &&
+         genderId.value !== null &&
          userType.value !== null &&
-         password.value.length >= 6
+         password.value.length >= 6 &&
+         cui.value.length === 13 &&
+         nit.value.length >= 8
 })
 
 const createAccount = async () => {
   if (!isFormValid.value) {
+    errorMessage.value = 'Por favor, complete todos los campos correctamente'
     return
   }
   
   loading.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  
+  const requestData = {
+    cui: cui.value,
+    nit: nit.value,
+    firstName: firstName.value,
+    lastName: lastName.value,
+    email: email.value,
+    phone: phone.value,
+    birthDate: birthDate.value,
+    genderId: genderId.value,
+    username: username.value,
+    password: password.value,
+    userTypeId: userType.value
+  }
   
   try {
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    console.log('Cuenta creada exitosamente:', {
-      firstName: firstName.value,
-      lastName: lastName.value,
-      username: username.value,
-      email: email.value,
-      phone: phone.value,
-      userType: userType.value,
-      password: password.value
+    const response = await fetch('http://localhost:8080/api/v1/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
     })
+    
+    const responseData = await response.json()
+    
+    if (response.ok) {
+      // Usar el mensaje de la respuesta si existe, o uno por defecto
+      successMessage.value = responseData.message || 'Cuenta creada exitosamente'
+      console.log('Cuenta creada exitosamente:', responseData)
+      
+      // Limpiar el formulario
+      resetForm()
+      
+      // Hacer que el mensaje desaparezca después de 5 segundos
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+      
+    } else {
+      errorMessage.value = responseData.message || 'Error al crear la cuenta'
+      console.error('Error en la respuesta:', responseData)
+    }
   } catch (error) {
+    errorMessage.value = 'Error de conexión. Verifique que el servidor esté ejecutándose.'
     console.error('Error al crear cuenta:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// Función para limpiar mensajes
+const clearMessages = () => {
+  successMessage.value = ''
+  errorMessage.value = ''
+}
+
+// Función para reiniciar el formulario
+const resetForm = () => {
+  cui.value = ''
+  nit.value = ''
+  firstName.value = ''
+  lastName.value = ''
+  username.value = ''
+  email.value = ''
+  password.value = ''
+  phone.value = ''
+  birthDate.value = ''
+  genderId.value = null
+  userType.value = null
+  
+  // Resetear el estado de validación del formulario
+  if (formRef.value) {
+    formRef.value.resetValidation()
   }
 }
 </script>
@@ -112,7 +212,7 @@ const createAccount = async () => {
                 <!-- Formulario de registro - Lado derecho -->
                 <v-col cols="12" md="8" class="register-form">
                   <div class="form-section w-100">
-                    <v-form @submit.prevent="createAccount">
+                    <v-form ref="formRef" @submit.prevent="createAccount" lazy-validation>
                       <div class="text-center mb-4">
                         <h2 class="text-h5 font-weight-medium grey--text text--darken-2">
                           <v-icon class="mr-2" color="grey darken-2">mdi-account-plus</v-icon>
@@ -120,7 +220,59 @@ const createAccount = async () => {
                         </h2>
                         <p class="text-body-2 grey--text">Únete a AutoXela</p>
                       </div>
+
+                      <!-- Mensajes de estado -->
+                      <v-alert
+                        v-if="successMessage"
+                        type="success"
+                        dismissible
+                        @input="clearMessages"
+                        class="mb-4"
+                      >
+                        {{ successMessage }}
+                      </v-alert>
+
+                      <v-alert
+                        v-if="errorMessage"
+                        type="error"
+                        dismissible
+                        @input="clearMessages"
+                        class="mb-4"
+                      >
+                        {{ errorMessage }}
+                      </v-alert>
                       
+                      <!-- Fila CUI y NIT -->
+                      <v-row>
+                        <v-col cols="12" sm="6">
+                          <v-text-field
+                            v-model="cui"
+                            label="CUI"
+                            prepend-inner-icon="mdi-card-account-details"
+                            outlined
+                            dense
+                            required
+                            :rules="[rules.required, rules.cui]"
+                            hint="13 dígitos"
+                            persistent-hint
+                            maxlength="13"
+                          />
+                        </v-col>
+                        <v-col cols="12" sm="6">
+                          <v-text-field
+                            v-model="nit"
+                            label="NIT"
+                            prepend-inner-icon="mdi-card-text"
+                            outlined
+                            dense
+                            required
+                            :rules="[rules.required, rules.nit]"
+                            hint="Número de identificación tributaria"
+                            persistent-hint
+                          />
+                        </v-col>
+                      </v-row>
+
                       <!-- Fila de nombres -->
                       <v-row>
                         <v-col cols="12" sm="6">
@@ -169,20 +321,20 @@ const createAccount = async () => {
                         <v-col cols="12" sm="6">
                           <v-text-field
                             v-model="email"
-                            label="Gmail"
+                            label="Email"
                             prepend-inner-icon="mdi-email"
                             type="email"
                             outlined
                             dense
                             required
                             :rules="[rules.required, rules.email]"
-                            hint="tu@gmail.com"
+                            hint="tu@ejemplo.com"
                             persistent-hint
                           />
                         </v-col>
                       </v-row>
                       
-                      <!-- Teléfono y Contraseña -->
+                      <!-- Teléfono y Fecha de Nacimiento -->
                       <v-row>
                         <v-col cols="12" sm="6">
                           <v-text-field
@@ -194,6 +346,40 @@ const createAccount = async () => {
                             required
                             :rules="[rules.required, rules.phone]"
                             hint="Número de teléfono (solo números)"
+                            persistent-hint
+                          />
+                        </v-col>
+                        <v-col cols="12" sm="6">
+                          <v-text-field
+                            v-model="birthDate"
+                            label="Fecha de Nacimiento"
+                            prepend-inner-icon="mdi-calendar"
+                            type="date"
+                            outlined
+                            dense
+                            required
+                            :rules="[rules.required, rules.birthDate]"
+                            hint="Debe ser mayor de 18 años"
+                            persistent-hint
+                          />
+                        </v-col>
+                      </v-row>
+
+                      <!-- Género y Contraseña -->
+                      <v-row>
+                        <v-col cols="12" sm="6">
+                          <v-select
+                            v-model="genderId"
+                            :items="genderOptions"
+                            item-title="text"
+                            item-value="value"
+                            label="Género"
+                            prepend-inner-icon="mdi-human-male-female"
+                            outlined
+                            dense
+                            required
+                            :rules="[rules.required]"
+                            hint="Seleccione su género"
                             persistent-hint
                           />
                         </v-col>

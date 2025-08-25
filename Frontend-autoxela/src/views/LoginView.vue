@@ -1,49 +1,165 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 
 // Estado reactivo del formulario
 const username = ref('')
 const password = ref('')
+const rememberMe = ref(false)
 const showPassword = ref(false)
 const loading = ref(false)
+
+// Estados para 2FA
+const show2FADialog = ref(false)
+const verificationCode = ref('')
+const verificationLoading = ref(false)
+
+// Mensajes de estado
+const successMessage = ref('')
+const errorMessage = ref('')
 
 // Reglas de validación
 const rules = reactive({
   required: (value: string) => !!value || 'Este campo es requerido',
-  minLength: (value: string) => value.length >= 3 || 'Mínimo 3 caracteres'
+  minLength: (value: string) => value.length >= 3 || 'Mínimo 3 caracteres',
+  codeLength: (value: string) => value.length === 6 || 'El código debe tener 6 dígitos'
 })
 
-// Función de login
+// Computed para validar el código de verificación
+const isCodeValid = computed(() => {
+  return verificationCode.value.length === 6 && /^\d{6}$/.test(verificationCode.value)
+})
+
+// Función de login inicial
 const login = async () => {
   if (!username.value || !password.value) {
+    errorMessage.value = 'Por favor complete todos los campos'
     return
   }
   
   loading.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  
+  const requestData = {
+    username: username.value,
+    password: password.value,
+    rememberMe: rememberMe.value
+  }
   
   try {
-    // Simular llamada a API
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    console.log('Login exitoso:', {
-      username: username.value,
-      password: password.value
+    const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
     })
     
-    // Aquí iría la lógica de autenticación real
-    // router.push('/dashboard')
+    const responseData = await response.json()
     
+    if (response.ok) {
+      // Si el login es exitoso, mostrar el dialog de 2FA
+      successMessage.value = responseData.message || 'Código de verificación enviado a su email'
+      show2FADialog.value = true
+      console.log('Login inicial exitoso:', responseData)
+    } else {
+      errorMessage.value = responseData.message || 'Credenciales inválidas'
+      console.error('Error en login:', responseData)
+    }
   } catch (error) {
-    console.error('Error en login:', error)
+    errorMessage.value = 'Error de conexión. Verifique que el servidor esté ejecutándose.'
+    console.error('Error al hacer login:', error)
   } finally {
     loading.value = false
   }
+}
+
+// Función para verificar el código 2FA
+const verify2FA = async () => {
+  if (!isCodeValid.value) {
+    return
+  }
+  
+  verificationLoading.value = true
+  errorMessage.value = ''
+  
+  const requestData = {
+    username: username.value,
+    code: verificationCode.value
+  }
+  
+  try {
+    const response = await fetch('http://localhost:8080/api/v1/auth/verify-2fa', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
+    
+    const responseData = await response.json()
+    
+    if (response.ok) {
+      // Autenticación completa exitosa
+      successMessage.value = responseData.message || 'Autenticación exitosa'
+      
+      // Guardar tokens (puedes usar localStorage, sessionStorage o un store)
+      if (responseData.accessToken) {
+        localStorage.setItem('accessToken', responseData.accessToken)
+        localStorage.setItem('refreshToken', responseData.refreshToken)
+        localStorage.setItem('userInfo', JSON.stringify({
+          username: responseData.username,
+          userType: responseData.userType,
+          fullName: responseData.fullName
+        }))
+      }
+      
+      console.log('Autenticación 2FA exitosa:', responseData)
+      
+      // Cerrar dialog y mostrar mensaje por 3 segundos antes de redireccionar
+      show2FADialog.value = false
+      setTimeout(() => {
+        // Aquí podrías redireccionar al dashboard
+        // router.push('/dashboard')
+        console.log('Redireccionar al dashboard...')
+      }, 3000)
+      
+    } else {
+      errorMessage.value = responseData.message || 'Código de verificación inválido'
+      console.error('Error en verificación 2FA:', responseData)
+    }
+  } catch (error) {
+    errorMessage.value = 'Error de conexión durante la verificación.'
+    console.error('Error al verificar 2FA:', error)
+  } finally {
+    verificationLoading.value = false
+  }
+}
+
+// Función para cerrar el dialog de 2FA
+const close2FADialog = () => {
+  show2FADialog.value = false
+  verificationCode.value = ''
+  errorMessage.value = ''
 }
 
 // Función para recuperar contraseña
 const forgotPassword = () => {
   console.log('Recuperar contraseña para:', username.value)
   // Aquí iría la lógica para recuperar contraseña
+}
+
+// Función para limpiar mensajes
+const clearMessages = () => {
+  successMessage.value = ''
+  errorMessage.value = ''
+}
+
+// Función para solo permitir números en el código de verificación
+const onCodeInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value.replace(/\D/g, '') // Solo números
+  verificationCode.value = value.slice(0, 6) // Máximo 6 dígitos
 }
 </script>
 
@@ -82,7 +198,7 @@ const forgotPassword = () => {
                 <!-- Formulario de login - Lado derecho -->
                 <v-col cols="12" md="7" class="login-form d-flex align-center">
                   <div class="form-section w-100">
-                    <v-form @submit.prevent="login">
+                    <v-form @submit.prevent="login" lazy-validation>
                       <div class="text-center mb-6">
                         <h2 class="text-h5 font-weight-medium grey--text text--darken-2">
                           <v-icon class="mr-2" color="grey darken-2">mdi-account-circle</v-icon>
@@ -90,6 +206,27 @@ const forgotPassword = () => {
                         </h2>
                         <p class="text-body-2 grey--text">Accede a tu cuenta</p>
                       </div>
+
+                      <!-- Mensajes de estado -->
+                      <v-alert
+                        v-if="successMessage"
+                        type="success"
+                        dismissible
+                        @input="clearMessages"
+                        class="mb-4"
+                      >
+                        {{ successMessage }}
+                      </v-alert>
+
+                      <v-alert
+                        v-if="errorMessage"
+                        type="error"
+                        dismissible
+                        @input="clearMessages"
+                        class="mb-4"
+                      >
+                        {{ errorMessage }}
+                      </v-alert>
                       
                       <v-text-field
                         v-model="username"
@@ -116,6 +253,14 @@ const forgotPassword = () => {
                         required
                         class="mb-4"
                         :rules="[rules.required]"
+                      />
+
+                      <!-- Checkbox Recordarme -->
+                      <v-checkbox
+                        v-model="rememberMe"
+                        label="Recordarme"
+                        color="orange darken-2"
+                        class="mt-0 mb-4"
                       />
                       
                       <div class="text-center mb-4">
@@ -150,6 +295,79 @@ const forgotPassword = () => {
           </v-col>
         </v-row>
       </v-container>
+
+      <!-- Dialog de verificación 2FA -->
+      <v-dialog
+        v-model="show2FADialog"
+        max-width="500px"
+        persistent
+      >
+        <v-card class="verification-card">
+          <v-card-title class="text-center pb-2">
+            <div class="w-100">
+              <v-icon size="48" color="orange darken-2" class="mb-3">
+                mdi-shield-lock
+              </v-icon>
+              <h3 class="text-h5 font-weight-medium">Verificación Requerida</h3>
+            </div>
+          </v-card-title>
+          
+          <v-card-text class="text-center px-6 pb-2">
+            <p class="text-body-1 mb-4">
+              Hemos enviado un código de 6 dígitos a su email registrado.
+            </p>
+            
+            <v-text-field
+              v-model="verificationCode"
+              label="Código de Verificación"
+              prepend-inner-icon="mdi-numeric"
+              outlined
+              dense
+              required
+              class="verification-input"
+              :rules="[rules.required, rules.codeLength]"
+              hint="Ingrese el código de 6 dígitos"
+              persistent-hint
+              maxlength="6"
+              @input="onCodeInput"
+              placeholder="123456"
+            />
+
+            <v-alert
+              v-if="errorMessage && show2FADialog"
+              type="error"
+              dense
+              class="mt-3"
+            >
+              {{ errorMessage }}
+            </v-alert>
+          </v-card-text>
+          
+          <v-card-actions class="px-6 pb-6">
+            <v-btn
+              outlined
+              color="grey"
+              @click="close2FADialog"
+              :disabled="verificationLoading"
+            >
+              <v-icon left>mdi-close</v-icon>
+              Cancelar
+            </v-btn>
+            
+            <v-spacer />
+            
+            <v-btn
+              color="orange darken-2"
+              :loading="verificationLoading"
+              :disabled="!isCodeValid"
+              @click="verify2FA"
+            >
+              <v-icon left>mdi-check-circle</v-icon>
+              Verificar
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </div>
   </v-app>
 </template>
@@ -299,6 +517,25 @@ const forgotPassword = () => {
   background: linear-gradient(45deg, #f7931e, #ff6b35) !important;
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3) !important;
+}
+
+/* Estilos para el dialog de verificación */
+.verification-card {
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(10px);
+  border-radius: 16px !important;
+}
+
+.verification-input {
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.verification-input input {
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 4px;
 }
 
 @media (max-width: 960px) {
