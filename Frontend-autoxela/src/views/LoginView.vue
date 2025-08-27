@@ -36,18 +36,15 @@ import { ref, reactive, computed } from 'vue'
     }
   })
 
-  // Computed para validar el código de verificación
   const isCodeValid = computed(() => {
     return verificationCode.value.length === 6 && /^\d{6}$/.test(verificationCode.value)
   })
 
-  // Computed para validar email en forgot password
   const isEmailValid = computed(() => {
     const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return pattern.test(forgotPasswordEmail.value)
   })
 
-  // Función de login inicial
   const login = async () => {
     if (!username.value || !password.value) {
       errorMessage.value = 'Por favor complete todos los campos'
@@ -128,15 +125,16 @@ import { ref, reactive, computed } from 'vue'
           localStorage.setItem('username', responseData.username)
           localStorage.setItem('userType', responseData.userType)
           localStorage.setItem('fullName', responseData.fullName)
-          localStorage.setItem('userId', responseData.username) // Usando username como userId
+          localStorage.setItem('userId', responseData.username) 
         }
         
+        window.dispatchEvent(new CustomEvent('user-logged-in'))
         console.log('Autenticación 2FA exitosa:', responseData)
         
         show2FADialog.value = false
         setTimeout(() => {
           router.push('/')
-        }, 3000)
+        }, 2000)
         
       } else {
         errorMessage.value = responseData.message || 'Código de verificación inválido'

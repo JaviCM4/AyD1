@@ -1,93 +1,157 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { useRouter } from 'vue-router'
 
-const drawer = ref<boolean | null>(null)
-const router = useRouter()
+  const drawer = ref<boolean | null>(null)
+  const router = useRouter()
 
-// Estados reactivos para el usuario
-const userId = ref<string>('')
-const username = ref<string>('')
-const userEmail = ref<string>('')
-const userType = ref<string>('')
-const fullName = ref<string>('')
+  const userId = ref<string>('')
+  const username = ref<string>('')
+  const userEmail = ref<string>('')
+  const userType = ref<string>('')
+  const fullName = ref<string>('')
 
-// Computed properties
-const isLoggedIn = computed(() => !!userId.value && !!username.value)
+  const isLoggedIn = computed(() => !!userId.value && !!username.value)
 
-// Verificar roles específicos
-const isAdmin = computed(() => userType.value === 'Administrador')
-const isMechanic = computed(() => userType.value === 'Mecánico')
-const isCustomer = computed(() => userType.value === 'Cliente')
+  // Esta en función del rol
+  const isAdmin = computed(() => userType.value === 'Administrador')
+  const isMechanic = computed(() => userType.value === 'Mecánico')
+  const isCustomer = computed(() => userType.value === 'Cliente')
 
-// Función para cargar datos del usuario desde localStorage
-const loadUserData = () => {
-  userId.value = localStorage.getItem('userId') || ''
-  username.value = localStorage.getItem('username') || ''
-  userEmail.value = localStorage.getItem('userEmail') || ''
-  userType.value = localStorage.getItem('userType') || ''
-  fullName.value = localStorage.getItem('fullName') || ''
-}
+  const loadUserData = () => {
+    const newUserId = localStorage.getItem('userId') || ''
+    const newUsername = localStorage.getItem('username') || ''
+    const newUserEmail = localStorage.getItem('userEmail') || ''
+    const newUserType = localStorage.getItem('userType') || ''
+    const newFullName = localStorage.getItem('fullName') || ''
+    
+    if (userId.value !== newUserId) userId.value = newUserId
+    if (username.value !== newUsername) username.value = newUsername
+    if (userEmail.value !== newUserEmail) userEmail.value = newUserEmail
+    if (userType.value !== newUserType) userType.value = newUserType
+    if (fullName.value !== newFullName) fullName.value = newFullName
+  }
 
-// Función para logout con llamada a la API
-const logout = async () => {
-  const accessToken = localStorage.getItem('accessToken')
-  
-  // Si hay token, intentar hacer logout en el servidor
-  if (accessToken) {
+  // Función para renovar token
+  const refreshToken = async () => {
+    const refreshTokenValue = localStorage.getItem('refreshToken')
+    
+    if (!refreshTokenValue) {
+      console.error('No hay refresh token disponible')
+      return
+    }
+    
     try {
-      const response = await fetch('/auth/logout', {
+      const response = await fetch('http://localhost:8080/api/v1/auth/refresh-token', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          refreshToken: refreshTokenValue
+        })
       })
       
-      // Verificar si la respuesta fue exitosa
       if (response.ok) {
         const data = await response.json()
-        console.log('Logout exitoso:', data.message)
+        
+        localStorage.setItem('accessToken', data.accessToken)
+        localStorage.setItem('refreshToken', data.refreshToken)
+        localStorage.setItem('tokenType', data.tokenType || 'Bearer')
+        localStorage.setItem('username', data.username)
+        localStorage.setItem('userType', data.userType)
+        localStorage.setItem('fullName', data.fullName)
+        loadUserData()
+        
+        window.dispatchEvent(new CustomEvent('user-logged-in'))
+        console.log('Token renovado exitosamente:', data.message)
+        
       } else {
-        console.warn('Error en logout del servidor:', response.status)
-        // Continuar con el logout local aunque falle el servidor
+        console.error('Error al renovar token:', response.status)
+        if (response.status === 401 || response.status === 403) {
+          console.log('Refresh token inválido, cerrando sesión...')
+          logout()
+        }
       }
     } catch (error) {
-      console.error('Error al conectar con el servidor para logout:', error)
-      // Continuar con el logout local aunque falle la conexión
+      console.error('Error al conectar para renovar token:', error)
     }
   }
-  
-  // Limpiar todos los datos de localStorage (siempre se ejecuta)
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  localStorage.removeItem('tokenType')
-  localStorage.removeItem('userId')
-  localStorage.removeItem('username')
-  localStorage.removeItem('userEmail')
-  localStorage.removeItem('userType')
-  localStorage.removeItem('fullName')
 
-  // Limpiar estados reactivos
-  userId.value = ''
-  username.value = ''
-  userEmail.value = ''
-  userType.value = ''
-  fullName.value = ''
+  const logout = async () => {
+    const accessToken = localStorage.getItem('accessToken')
+    
+    if (accessToken) {
+      try {
+        const response = await fetch('http://localhost:8080/api/v1/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Logout exitoso:', data.message)
+        } else {
+          console.warn('Error en logout del servidor:', response.status)
+        }
+      } catch (error) {
+        console.error('Error al conectar con el servidor para logout:', error)
+      }
+    }
+    
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('tokenType')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('username')
+    localStorage.removeItem('userEmail')
+    localStorage.removeItem('userType')
+    localStorage.removeItem('fullName')
 
-  drawer.value = false
-  router.push('/')
-}
+    userId.value = ''
+    username.value = ''
+    userEmail.value = ''
+    userType.value = ''
+    fullName.value = ''
 
-// Ciclo de vida
-onMounted(() => {
-  loadUserData()
-  window.addEventListener('user-logged-in', loadUserData)
-})
+    window.dispatchEvent(new CustomEvent('user-logged-out'))
 
-onUnmounted(() => {
-  window.removeEventListener('user-logged-in', loadUserData)
-})
+    drawer.value = false
+    router.push('/')
+  }
+
+  onMounted(() => {
+    loadUserData()
+    
+    window.addEventListener('user-logged-in', loadUserData)
+    window.addEventListener('user-logged-out', loadUserData)
+    
+    window.addEventListener('storage', (event) => {
+      if (event.key && ['userId', 'username', 'userEmail', 'userType', 'fullName'].includes(event.key)) {
+        loadUserData()
+      }
+    })
+    
+    const interval = setInterval(() => {
+      const currentUserId = localStorage.getItem('userId') || ''
+      if (currentUserId !== userId.value) {
+        loadUserData()
+      }
+    }, 500)
+    
+    onUnmounted(() => {
+      clearInterval(interval)
+    })
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('user-logged-in', loadUserData)
+    window.removeEventListener('user-logged-out', loadUserData)
+    window.removeEventListener('storage', loadUserData)
+  })
 </script>
 
 <template>
@@ -202,12 +266,14 @@ onUnmounted(() => {
                 <v-divider class="my-2"></v-divider>
                 <v-list-subheader class="text-medium-emphasis">GENERAL</v-list-subheader>
    
-                <!-- Separador y opción de cerrar sesión -->
+                <!-- Separador y opciones de sesión -->
                 <v-divider class="my-2"></v-divider>
+                <v-list-item @click="refreshToken" title="Renovar Token" prepend-icon="mdi-refresh" class="text-blue-accent-2"></v-list-item>
                 <v-list-item @click="logout" title="Cerrar Sesión" prepend-icon="mdi-logout" class="text-red-accent-2"></v-list-item>
             </template>
         </v-list>
     </v-navigation-drawer>
+    
 </template>
 
 <style scoped>
@@ -225,6 +291,10 @@ onUnmounted(() => {
 
     .text-cyan-accent-2 {
         color: rgb(24, 255, 255) !important;
+    }
+
+    .text-blue-accent-2 {
+        color: rgb(68, 138, 255) !important;
     }
 
     .v-list-subheader {
