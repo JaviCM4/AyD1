@@ -33,10 +33,10 @@ const errorMessage = ref('')
 const formRef = ref(null)
 
 const userTypeOptions: UserTypeOption[] = [
-  { value: 1, text: 'Cliente', icon: 'mdi-account' },
-  { value: 2, text: 'Proveedor', icon: 'mdi-truck-delivery' },
-  { value: 3, text: 'Empleado', icon: 'mdi-account-tie' },
-  { value: 4, text: 'Especialista', icon: 'mdi-account-wrench' }
+  { value: 2, text: 'Empleado', icon: 'mdi-account' },
+  { value: 3, text: 'Especialista', icon: 'mdi-truck-delivery' },
+  { value: 4, text: 'Cliente', icon: 'mdi-account-tie' },
+  { value: 5, text: 'Proveedor', icon: 'mdi-account-wrench' }
 ]
 
 const genderOptions: GenderOption[] = [
@@ -128,6 +128,7 @@ const createAccount = async () => {
     if (response.ok) {
       // Usar el mensaje de la respuesta si existe, o uno por defecto
       successMessage.value = responseData.message || 'Cuenta creada exitosamente'
+      console.log('datos ',requestData)
       console.log('Cuenta creada exitosamente:', responseData)
       
       // Limpiar el formulario

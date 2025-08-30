@@ -4,6 +4,7 @@ import InventoryView from '@/views/InventoryView.vue'
 import LoginView from '@/views/LoginView.vue'
 import MyVehiclesView from '@/views/MyVehiclesView.vue'
 import RestoreView from '@/views/RestoreView.vue'
+import UserView from '@/views/UserView.vue'
 import VehicleRegistrationView from '@/views/VehicleRegistrationView.vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
@@ -24,6 +25,11 @@ const router = createRouter({
       path: '/create-user',
       name: 'create-user',
       component: CreateUserView,
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: UserView,
     },
     {
       path: '/my-vehicles',

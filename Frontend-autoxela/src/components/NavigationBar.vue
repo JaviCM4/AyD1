@@ -233,6 +233,7 @@
                 </v-list-subheader>
                 
                 <v-list-item to="/create-user" title="Crear Usuarios" prepend-icon="mdi-account-plus" router></v-list-item>
+                <v-list-item to="/users" title="Usuarios" prepend-icon="mdi-account-plus" router></v-list-item>
                 
                 <v-divider class="my-2"></v-divider>
                 <v-list-subheader class="text-medium-emphasis">OPERACIONES</v-list-subheader>
