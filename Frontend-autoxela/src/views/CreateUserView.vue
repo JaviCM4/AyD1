@@ -12,6 +12,12 @@ interface GenderOption {
   text: string;
 }
 
+interface SpecializationOption {
+  id: number;
+  name: string;
+  icon: string;
+}
+
 // Elementos del formulario reactivos
 const cui = ref('')
 const nit = ref('')
@@ -26,6 +32,11 @@ const genderId = ref<number | null>(null)
 const userType = ref<number | null>(null)
 const showPassword = ref(false)
 const loading = ref(false)
+
+// Especialización
+const showSpecializationDialog = ref(false)
+const selectedSpecializations = ref<number[]>([])
+const certificationDate = ref('')
 
 // Mensajes de estado
 const successMessage = ref('')
@@ -42,6 +53,23 @@ const userTypeOptions: UserTypeOption[] = [
 const genderOptions: GenderOption[] = [
   { value: 1, text: 'Masculino' },
   { value: 2, text: 'Femenino' }
+]
+
+const specializationOptions: SpecializationOption[] = [
+  { id: 1, name: 'Electricidad automotriz', icon: 'mdi-lightning-bolt' },
+  { id: 2, name: 'Diagnóstico computarizado', icon: 'mdi-laptop' },
+  { id: 3, name: 'Sistemas de frenos', icon: 'mdi-car-brake-parking' },
+  { id: 4, name: 'Reparación de motores', icon: 'mdi-engine' },
+  { id: 5, name: 'Transmisión', icon: 'mdi-cog' },
+  { id: 6, name: 'Aire acondicionado', icon: 'mdi-air-conditioner' },
+  { id: 7, name: 'Suspensión', icon: 'mdi-car-side' },
+  { id: 8, name: 'Dirección', icon: 'mdi-steering' },
+  { id: 9, name: 'Inyección electrónica', icon: 'mdi-chip' },
+  { id: 10, name: 'Turbo y sobrealimentación', icon: 'mdi-turbine' },
+  { id: 11, name: 'Híbridos', icon: 'mdi-car-electric' },
+  { id: 12, name: 'Diésel', icon: 'mdi-gas-station' },
+  { id: 13, name: 'Carrocería', icon: 'mdi-car' },
+  { id: 14, name: 'Pintura', icon: 'mdi-palette' }
 ]
 
 const rules = reactive({
@@ -74,7 +102,7 @@ const rules = reactive({
 })
 
 const isFormValid = computed(() => {
-  return cui.value && 
+  const baseValid = cui.value && 
          nit.value &&
          firstName.value && 
          lastName.value && 
@@ -88,6 +116,57 @@ const isFormValid = computed(() => {
          password.value.length >= 6 &&
          cui.value.length === 13 &&
          nit.value.length >= 8
+
+  // Para empleados y especialistas, también necesitamos especialización
+  if ((userType.value === 2 || userType.value === 3)) {
+    return baseValid && selectedSpecializations.value.length > 0 && certificationDate.value
+  }
+  
+  return baseValid
+})
+
+const isEmployeeOrSpecialist = computed(() => {
+  return userType.value === 2 || userType.value === 3
+})
+
+const onUserTypeChange = (value: number) => {
+  userType.value = value
+  if (value === 2 || value === 3) {
+    showSpecializationDialog.value = true
+  } else {
+    selectedSpecializations.value = []
+    certificationDate.value = ''
+  }
+}
+
+const confirmSpecializations = () => {
+  if (selectedSpecializations.value.length === 0 || !certificationDate.value) {
+    errorMessage.value = 'Debe seleccionar al menos una especialización y fecha de certificación'
+    return
+  }
+  showSpecializationDialog.value = false
+  clearMessages()
+}
+
+const cancelSpecializationSelection = () => {
+  selectedSpecializations.value = []
+  certificationDate.value = ''
+  userType.value = null
+  showSpecializationDialog.value = false
+}
+
+const openSpecializationDialog = () => {
+  if (isEmployeeOrSpecialist.value) {
+    showSpecializationDialog.value = true
+  }
+}
+
+const getSelectedSpecializationsText = computed(() => {
+  if (selectedSpecializations.value.length === 0) return 'Ninguna especialización seleccionada'
+  const names = selectedSpecializations.value.map(id => 
+    specializationOptions.find(opt => opt.id === id)?.name
+  ).filter(Boolean)
+  return names.join(', ')
 })
 
 const createAccount = async () => {
@@ -99,8 +178,9 @@ const createAccount = async () => {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
-  
-  const requestData = {
+
+  // Preparar datos base
+  const requestData: Record<string, unknown> = {
     cui: cui.value,
     nit: nit.value,
     firstName: firstName.value,
@@ -113,28 +193,51 @@ const createAccount = async () => {
     password: password.value,
     userTypeId: userType.value
   }
+
+  // Agregar especializaciones para empleados y especialistas
+  if (isEmployeeOrSpecialist.value) {
+    requestData.specializations = selectedSpecializations.value.map(id => ({
+      specializationTypeId: id,
+      certificationDate: certificationDate.value
+    }))
+  }
+
+  // Determinar endpoint y token
+  let endpoint = 'http://localhost:8080/api/v1/auth/register'
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (userType.value === 2) {
+    endpoint = 'http://localhost:8080/api/v1/employees'
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  } else if (userType.value === 3) {
+    endpoint = 'http://localhost:8080/api/v1/specialists'
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  }
   
   try {
-    const response = await fetch('http://localhost:8080/api/v1/auth/register', {
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(requestData)
     })
     
     const responseData = await response.json()
     
     if (response.ok) {
-      // Usar el mensaje de la respuesta si existe, o uno por defecto
       successMessage.value = responseData.message || 'Cuenta creada exitosamente'
-      console.log('datos ',requestData)
+      console.log('Datos enviados:', requestData)
       console.log('Cuenta creada exitosamente:', responseData)
       
-      // Limpiar el formulario
       resetForm()
       
-      // Hacer que el mensaje desaparezca después de 5 segundos
       setTimeout(() => {
         successMessage.value = ''
       }, 5000)
@@ -151,13 +254,11 @@ const createAccount = async () => {
   }
 }
 
-// Función para limpiar mensajes
 const clearMessages = () => {
   successMessage.value = ''
   errorMessage.value = ''
 }
 
-// Función para reiniciar el formulario
 const resetForm = () => {
   cui.value = ''
   nit.value = ''
@@ -170,8 +271,9 @@ const resetForm = () => {
   birthDate.value = ''
   genderId.value = null
   userType.value = null
+  selectedSpecializations.value = []
+  certificationDate.value = ''
   
-  // Resetear el estado de validación del formulario
   if (formRef.value) {
     formRef.value.resetValidation()
   }
@@ -181,7 +283,6 @@ const resetForm = () => {
 <template>
   <v-app>
     <div class="register-container">
-
       <div class="floating-icons">
         <v-icon class="floating-icon" size="24">mdi-car-wrench</v-icon>
         <v-icon class="floating-icon" size="32">mdi-engine</v-icon>
@@ -424,7 +525,7 @@ const resetForm = () => {
                                   :key="option.value"
                                   class="radio-card"
                                   :class="{ 'selected': userType === option.value }"
-                                  @click="userType = option.value"
+                                  @click="onUserTypeChange(option.value)"
                                   elevation="2"
                                   outlined
                                 >
@@ -454,10 +555,42 @@ const resetForm = () => {
                           </div>
                         </v-col>
                       </v-row>
+
+                      <!-- Sección de especialización para empleados y especialistas -->
+                      <v-row v-if="isEmployeeOrSpecialist">
+                        <v-col cols="12">
+                          <v-card outlined class="specialization-card">
+                            <v-card-title class="pb-2">
+                              <v-icon class="mr-2" color="orange darken-2">mdi-star</v-icon>
+                              Especialización
+                            </v-card-title>
+                            <v-card-text>
+                              <v-row>
+                                <v-col cols="12" sm="8">
+                                  <div class="specialization-summary">
+                                    <p class="mb-1"><strong>Especialidades seleccionadas:</strong></p>
+                                    <p class="text-caption">{{ getSelectedSpecializationsText }}</p>
+                                  </div>
+                                </v-col>
+                                <v-col cols="12" sm="4" class="text-right">
+                                  <v-btn
+                                    color="orange darken-2"
+                                    outlined
+                                    small
+                                    @click="openSpecializationDialog"
+                                  >
+                                    <v-icon left small>mdi-cog</v-icon>
+                                    Configurar
+                                  </v-btn>
+                                </v-col>
+                              </v-row>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
                       
                       <!-- Contenedor de botones -->
                       <div class="buttons-container mb-4">
-                        <!-- Botón Crear Cuenta - Izquierda -->
                         <div class="left-button">
                           <v-btn
                             type="submit"
@@ -481,6 +614,95 @@ const resetForm = () => {
           </v-col>
         </v-row>
       </v-container>
+
+      <!-- Diálogo de especialización -->
+      <v-dialog v-model="showSpecializationDialog" max-width="800px" persistent>
+        <v-card>
+          <v-card-title class="headline">
+            <v-icon class="mr-2" color="orange darken-2">mdi-star</v-icon>
+            Seleccionar Especialización
+          </v-card-title>
+          
+          <v-card-text>
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="certificationDate"
+                  label="Fecha de Certificación"
+                  type="date"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-calendar"
+                  hint="Fecha en que obtuvo la certificación"
+                  persistent-hint
+                  class="mb-4"
+                />
+              </v-col>
+            </v-row>
+
+            <p class="mb-4"><strong>Seleccione las especialidades:</strong></p>
+            
+            <div class="specializations-grid">
+              <v-card
+                v-for="spec in specializationOptions"
+                :key="spec.id"
+                class="specialization-option"
+                :class="{ 'selected': selectedSpecializations.includes(spec.id) }"
+                @click="
+                  selectedSpecializations.includes(spec.id)
+                    ? selectedSpecializations.splice(selectedSpecializations.indexOf(spec.id), 1)
+                    : selectedSpecializations.push(spec.id)
+                "
+                outlined
+                elevation="1"
+              >
+                <v-card-text class="pa-3 text-center">
+                  <v-icon
+                    :color="selectedSpecializations.includes(spec.id) ? 'orange darken-2' : 'grey'"
+                    size="32"
+                    class="mb-2"
+                  >
+                    {{ spec.icon }}
+                  </v-icon>
+                  <div 
+                    class="spec-name"
+                    :class="{ 'selected-spec': selectedSpecializations.includes(spec.id) }"
+                  >
+                    {{ spec.name }}
+                  </div>
+                  <v-icon
+                    v-if="selectedSpecializations.includes(spec.id)"
+                    color="orange darken-2"
+                    small
+                    class="mt-1"
+                  >
+                    mdi-check-circle
+                  </v-icon>
+                </v-card-text>
+              </v-card>
+            </div>
+          </v-card-text>
+
+          <v-card-actions class="pa-4">
+            <v-spacer></v-spacer>
+            <v-btn
+              color="grey"
+              text
+              @click="cancelSpecializationSelection"
+            >
+              Cancelar
+            </v-btn>
+            <v-btn
+              color="orange darken-2"
+              @click="confirmSpecializations"
+              :disabled="selectedSpecializations.length === 0 || !certificationDate"
+            >
+              Confirmar
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </div>
   </v-app>
 </template>

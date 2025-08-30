@@ -16,6 +16,9 @@ interface User {
   isActive: boolean
   lastLogin?: string
   createdAt?: string
+  addressDetailId?: number
+  birthDate?: string
+  genderId?: number
 }
 
 interface UserWithFullName extends User {
@@ -30,6 +33,18 @@ interface PaginationResponse {
   totalPages: number
   first: boolean
   last: boolean
+}
+
+interface UpdateUserRequest {
+  nit?: string
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string
+  addressDetailId: number
+  birthDate: string
+  genderId?: number
+  isActive: boolean
 }
 
 // Estados reactivos
@@ -54,12 +69,28 @@ const pagination = reactive({
 
 // Estados para filtros y búsqueda
 const searchByCUI = ref<string>('')
+const searchById = ref<string>('')
 const selectedUserType = ref<string>('')
 
 // Estados para dialogs
 const showUserDetailDialog = ref<boolean>(false)
 const selectedUser = ref<User | null>(null)
 const showDeleteConfirmDialog = ref<boolean>(false)
+const showEditUserDialog = ref<boolean>(false)
+
+// Estados para edición de usuario
+const editingUser = ref<User | null>(null)
+const editForm = reactive<UpdateUserRequest>({
+  nit: '',
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  addressDetailId: 1,
+  birthDate: '',
+  genderId: undefined,
+  isActive: true
+})
 
 // Opciones de filtro
 const userTypes: string[] = [
@@ -250,6 +281,54 @@ const searchUserByCUI = async (): Promise<void> => {
   } finally {
     searchLoading.value = false
   }
+  clearMessages()
+}
+
+// Función para buscar por ID
+const searchUserById = async (): Promise<void> => {
+  if (!searchById.value.trim()) {
+    loadUsers(0, pagination.size)
+    return
+  }
+  
+  searchLoading.value = true
+  errorMessage.value = ''
+  
+  const headers = getAuthHeaders()
+  if (!headers) {
+    searchLoading.value = false
+    return
+  }
+  
+  try {
+    const response = await fetch(
+      `http://localhost:8080/api/v1/admin/users/${encodeURIComponent(searchById.value)}`,
+      {
+        method: 'GET',
+        headers
+      }
+    )
+    
+    const responseData = await response.json()
+    
+    if (response.ok) {
+      users.value = [responseData as User] // Un solo usuario
+      pagination.totalElements = 1
+      pagination.totalPages = 1
+      successMessage.value = 'Usuario encontrado exitosamente'
+      console.log('Búsqueda por ID exitosa:', responseData)
+    } else {
+      errorMessage.value = responseData.message || 'Usuario no encontrado'
+      users.value = []
+      console.error('Error en búsqueda por ID:', responseData)
+    }
+  } catch (error) {
+    errorMessage.value = 'Error de conexión durante la búsqueda'
+    console.error('Error en búsqueda por ID:', error)
+  } finally {
+    searchLoading.value = false
+  }
+  clearMessages()
 }
 
 // Función para eliminar usuario
@@ -293,6 +372,7 @@ const deleteUser = async (): Promise<void> => {
   } finally {
     actionLoading.value = false
   }
+  clearMessages()
 }
 
 // Función para activar usuario
@@ -339,6 +419,7 @@ const activateUser = async (): Promise<void> => {
   } finally {
     actionLoading.value = false
   }
+  clearMessages()
 }
 
 // Función para desactivar usuario
@@ -374,6 +455,7 @@ const deactivateUser = async (): Promise<void> => {
       if (userIndex !== -1) {
         users.value[userIndex].isActive = false
       }
+
       console.log('Usuario desactivado exitosamente:', responseData)
     } else {
       errorMessage.value = responseData.message || 'Error al desactivar usuario'
@@ -385,6 +467,62 @@ const deactivateUser = async (): Promise<void> => {
   } finally {
     actionLoading.value = false
   }
+  clearMessages()
+}
+
+// Función para actualizar usuario
+const updateUser = async (): Promise<void> => {
+  if (!editingUser.value) return
+  
+  actionLoading.value = true
+  errorMessage.value = ''
+  editForm.addressDetailId = 1
+  editForm.birthDate = '1990-05-15'
+  
+  const headers = getAuthHeaders()
+  if (!headers) {
+    actionLoading.value = false
+    return
+  }
+  
+  try {
+    const response = await fetch(
+      `http://localhost:8080/api/v1/admin/users/${editingUser.value.id}`,
+      {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(editForm)
+      }
+    )
+    
+    const responseData = await response.json()
+    
+    if (response.ok) {
+      successMessage.value = responseData.message || 'Usuario actualizado exitosamente'
+      showEditUserDialog.value = false
+      
+      // Actualizar el usuario en la lista
+      const userIndex = users.value.findIndex(u => u.id === editingUser.value!.id)
+      if (userIndex !== -1) {
+        users.value[userIndex] = { ...users.value[userIndex], ...editForm }
+      }
+      
+      // Actualizar selectedUser si es el mismo
+      if (selectedUser.value?.id === editingUser.value.id) {
+        selectedUser.value = { ...selectedUser.value, ...editForm }
+      }
+      console.log('Usuario actualizado exitosamente:', responseData)
+    } else {
+      errorMessage.value = responseData.message || 'Error al actualizar usuario'
+      console.error('Error al actualizar usuario:', responseData)
+    }
+  } catch (error) {
+    errorMessage.value = 'Error de conexión al actualizar usuario'
+    console.error('Error al actualizar usuario:', error)
+  } finally {
+    actionLoading.value = false
+  }
+  clearMessages()
 }
 
 // Función para mostrar confirmación de eliminación
@@ -396,6 +534,22 @@ const confirmDeleteUser = (): void => {
 const showUserDetails = (user: User): void => {
   selectedUser.value = user
   showUserDetailDialog.value = true
+}
+
+// Función para mostrar dialog de edición
+const showEditUser = (): void => {
+  if (!selectedUser.value) return
+  
+  editingUser.value = selectedUser.value
+  // Llenar el formulario con los datos actuales
+  editForm.nit = selectedUser.value.nit || ''
+  editForm.firstName = selectedUser.value.firstName
+  editForm.lastName = selectedUser.value.lastName
+  editForm.email = selectedUser.value.email
+  editForm.phone = selectedUser.value.phone || ''
+  editForm.isActive = selectedUser.value.isActive
+  
+  showEditUserDialog.value = true
 }
 
 // Función para cambiar página
@@ -416,6 +570,7 @@ const changePageSize = (newSize: number): void => {
 // Función para limpiar filtros
 const clearFilters = (): void => {
   searchByCUI.value = ''
+  searchById.value = ''
   selectedUserType.value = ''
   successMessage.value = ''
   errorMessage.value = ''
@@ -424,8 +579,10 @@ const clearFilters = (): void => {
 
 // Función para limpiar mensajes
 const clearMessages = (): void => {
-  successMessage.value = ''
-  errorMessage.value = ''
+  setTimeout(() => {
+    successMessage.value = ''
+    errorMessage.value = ''
+  }, 5000)
 }
 
 // Función para formatear fecha
@@ -438,6 +595,12 @@ const formatDate = (dateString: string | undefined): string => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// Función para formatear fecha para input
+const formatDateForInput = (dateString: string | undefined): string => {
+  if (!dateString) return ''
+  return dateString.split('T')[0] // Obtener solo la parte de fecha YYYY-MM-DD
 }
 
 // Función para obtener color del chip de estado
@@ -505,8 +668,22 @@ onMounted(() => {
           
           <v-card-text>
             <v-row>
+              <!-- Búsqueda por ID -->
+              <v-col cols="12" md="3">
+                <v-text-field
+                  v-model="searchById"
+                  label="Buscar por ID"
+                  prepend-inner-icon="mdi-identifier"
+                  outlined
+                  dense
+                  clearable
+                  placeholder="Ej: 123"
+                  @keyup.enter="searchUserById"
+                />
+              </v-col>
+
               <!-- Búsqueda por CUI -->
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="3">
                 <v-text-field
                   v-model="searchByCUI"
                   label="Buscar por CUI"
@@ -520,7 +697,7 @@ onMounted(() => {
               </v-col>
 
               <!-- Filtro por tipo de usuario -->
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="3">
                 <v-select
                   v-model="selectedUserType"
                   label="Tipo de Usuario"
@@ -533,7 +710,7 @@ onMounted(() => {
               </v-col>
 
               <!-- Tamaño de página -->
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="3">
                 <v-select
                   :model-value="pagination.size"
                   @update:model-value="changePageSize"
@@ -549,6 +726,16 @@ onMounted(() => {
             <v-row>
               <v-col cols="12">
                 <div class="d-flex gap-3">
+                  <v-btn
+                    color="orange darken-2"
+                    @click="searchUserById"
+                    :loading="searchLoading"
+                    :disabled="!searchById"
+                  >
+                    <v-icon left>mdi-magnify</v-icon>
+                    Buscar por ID
+                  </v-btn>
+
                   <v-btn
                     color="orange darken-2"
                     @click="searchUserByCUI"
@@ -797,6 +984,17 @@ onMounted(() => {
                 </div>
                 
                 <div class="d-flex gap-3 flex-wrap">
+                  <!-- Botón Editar -->
+                  <v-btn
+                    color="primary"
+                    :loading="actionLoading"
+                    @click="showEditUser"
+                    variant="elevated"
+                  >
+                    <v-icon left>mdi-pencil</v-icon>
+                    Editar Usuario
+                  </v-btn>
+
                   <!-- Botón Activar -->
                   <v-btn
                     v-if="!selectedUser.isActive"
@@ -829,7 +1027,7 @@ onMounted(() => {
                     variant="elevated"
                   >
                     <v-icon left>mdi-delete</v-icon>
-                    Eliminar Usuario
+                    Eliminar
                   </v-btn>
                 </div>
 
@@ -846,6 +1044,117 @@ onMounted(() => {
                   </v-btn>
                 </div>
               </div>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Dialog de edición de usuario -->
+        <v-dialog
+          v-model="showEditUserDialog"
+          max-width="700px"
+          persistent
+        >
+          <v-card v-if="editingUser" class="user-detail-card">
+            <v-card-title class="pb-2">
+              <div class="d-flex align-center">
+                <v-icon size="32" color="primary" class="mr-3">
+                  mdi-account-edit
+                </v-icon>
+                <div>
+                  <h3 class="text-h6 font-weight-medium">Editar Usuario</h3>
+                  <p class="text-body-2 grey--text ma-0">ID: {{ editingUser.id }} - {{ editingUser.username }}</p>
+                </div>
+              </div>
+            </v-card-title>
+
+            <v-card-text class="pb-2">
+              <v-form>
+                <v-row>
+                  <!-- NIT -->
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="editForm.nit"
+                      label="NIT"
+                      prepend-inner-icon="mdi-card-account-details-outline"
+                      outlined
+                      dense
+                      placeholder="Ej: 103107169"
+                    />
+                  </v-col>
+
+                  <!-- Nombre -->
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="editForm.firstName"
+                      label="Nombre *"
+                      prepend-inner-icon="mdi-account"
+                      outlined
+                      dense
+                      required
+                    />
+                  </v-col>
+
+                  <!-- Apellido -->
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="editForm.lastName"
+                      label="Apellido *"
+                      prepend-inner-icon="mdi-account"
+                      outlined
+                      dense
+                      required
+                    />
+                  </v-col>
+
+                  <!-- Email -->
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="editForm.email"
+                      label="Email *"
+                      prepend-inner-icon="mdi-email"
+                      outlined
+                      dense
+                      type="email"
+                      required
+                    />
+                  </v-col>
+
+                  <!-- Teléfono -->
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="editForm.phone"
+                      label="Teléfono"
+                      prepend-inner-icon="mdi-phone"
+                      outlined
+                      dense
+                      placeholder="Ej: 12345678"
+                    />
+                  </v-col>
+
+                </v-row>
+              </v-form>
+            </v-card-text>
+
+            <v-card-actions class="px-6 py-4">
+              <v-spacer />
+              <v-btn
+                color="grey darken-1"
+                @click="showEditUserDialog = false"
+                variant="outlined"
+                :disabled="actionLoading"
+              >
+                <v-icon left>mdi-cancel</v-icon>
+                Cancelar
+              </v-btn>
+              <v-btn
+                color="primary"
+                @click="updateUser"
+                :loading="actionLoading"
+                variant="elevated"
+              >
+                <v-icon left>mdi-content-save</v-icon>
+                Guardar Cambios
+              </v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
