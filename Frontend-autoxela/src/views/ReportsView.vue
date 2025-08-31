@@ -270,7 +270,7 @@ const loadDashboardData = async () => {
   dashboardLoading.value = true;
   try {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.get("http://localhost:8080/reports/dashboard", {
+    const response = await axios.get("http://localhost:8080/api/v1/reports/dashboard", {
       headers: { Authorization: `Bearer ${token}` },
     });
     dashboardData.value = response.data;
@@ -287,13 +287,13 @@ const loadConfigurations = async () => {
     const token = localStorage.getItem("accessToken");
 
     const [typesRes, formatsRes, periodsRes] = await Promise.all([
-      axios.get("http://localhost:8080/reports/types", {
+      axios.get("http://localhost:8080/api/v1/reports/types", {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      axios.get("http://localhost:8080/reports/formats", {
+      axios.get("http://localhost:8080/api/v1/reports/formats", {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      axios.get("http://localhost:8080/reports/periods", {
+      axios.get("http://localhost:8080/api/v1/reports/periods", {
         headers: { Authorization: `Bearer ${token}` },
       }),
     ]);
@@ -321,7 +321,7 @@ const generateReport = async () => {
       payload.endDate = reportForm.endDate + "T23:59:59";
     }
 
-    await axios.post("http://localhost:8080/reports/generate", payload, {
+    await axios.post("http://localhost:8080/api/v1/reports/generate", payload, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -340,7 +340,7 @@ const generateReport = async () => {
 const loadReportHistory = async () => {
   try {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.get("http://localhost:8080/reports/history", {
+    const response = await axios.get("http://localhost:8080/api/v1/reports/history", {
       headers: { Authorization: `Bearer ${token}` },
     });
     reportHistory.value = response.data;
@@ -352,7 +352,7 @@ const loadReportHistory = async () => {
 const downloadReport = async (reportId: string) => {
   try {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.get(`http://localhost:8080/reports/download/${reportId}`, {
+    const response = await axios.get(`http://localhost:8080/api/v1/reports/download/${reportId}`, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: "blob",
     });
@@ -382,7 +382,7 @@ const downloadReport = async (reportId: string) => {
 const loadFinancialReport = async () => {
   try {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.get("http://localhost:8080/reports/financial", {
+    const response = await axios.get("http://localhost:8080/api/v1/reports/financial", {
       headers: { Authorization: `Bearer ${token}` },
       params: {
         startDate: dateFilters.startDate + "T00:00:00",
@@ -399,7 +399,7 @@ const loadFinancialReport = async () => {
 const loadOperationalReport = async () => {
   try {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.get("http://localhost:8080/reports/operational", {
+    const response = await axios.get("http://localhost:8080/api/v1/reports/operational", {
       headers: { Authorization: `Bearer ${token}` },
       params: {
         startDate: dateFilters.startDate + "T00:00:00",
@@ -418,17 +418,17 @@ const loadChartData = async () => {
     const token = localStorage.getItem("accessToken");
 
     const [incomeRes, statusRes, typeRes] = await Promise.all([
-      axios.get("http://localhost:8080/reports/charts/income", {
+      axios.get("http://localhost:8080/api/v1/reports/charts/income", {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           startDate: dateFilters.startDate + "T00:00:00",
           endDate: dateFilters.endDate + "T23:59:59",
         },
       }),
-      axios.get("http://localhost:8080/reports/charts/work-status", {
+      axios.get("http://localhost:8080/api/v1/reports/charts/work-status", {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      axios.get("http://localhost:8080/reports/charts/work-types", {
+      axios.get("http://localhost:8080/api/v1/reports/charts/work-types", {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           startDate: dateFilters.startDate + "T00:00:00",
@@ -450,7 +450,7 @@ const refreshDashboard = async () => {
   try {
     const token = localStorage.getItem("accessToken");
     await axios.post(
-      "http://localhost:8080/reports/dashboard/refresh",
+      "http://localhost:8080/api/v1/reports/dashboard/refresh",
       {},
       {
         headers: { Authorization: `Bearer ${token}` },
