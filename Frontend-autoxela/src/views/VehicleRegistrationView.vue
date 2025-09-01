@@ -1,78 +1,59 @@
 <script setup lang="ts">
-  import router from '@/router';
+import router from '@/router';
 import { ref, reactive, onMounted } from 'vue'
-  const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 
-  let errorMss: string;
+const errorMss = ref<string>("");
 
-  // Interfaces
-  interface Empleado {
-    id: number
-    nombre: string
-    especialidad: string
-  }
+// Interfaces
+interface Empleado {
+  id: number
+  nombre: string
+  especialidad: string
+}
 
-  interface Servicio {
-    id: number
-    nombre: string
-    descripcion: string
-    precio: number
-    estado: 'Pendiente' | 'En proceso' | 'Finalizado' | 'Cancelado'
-    tipo: 'Correctivo' | 'Preventivo'
-    empleados: Empleado[]
-    pagado: boolean
-    cancelado: boolean
-  }
+interface Servicio {
+  id: number
+  nombre: string
+  descripcion: string
+  precio: number
+  estado: 'Pendiente' | 'En proceso' | 'Finalizado' | 'Cancelado'
+  tipo: 'Correctivo' | 'Preventivo'
+  empleados: Empleado[]
+  pagado: boolean
+  cancelado: boolean
+}
 
-  interface Carro {
-    id: number
-    marca: string
-    modelo: string
-    año: number
-    color: string
-    placa: string
-    chasis: string
-    motor: string
-    servicios: Servicio[]
-  }
+interface Carro {
+  id: number
+  marca: string
+  modelo: string
+  año: number
+  color: string
+  placa: string
+  chasis: string
+  motor: string
+  servicios: Servicio[]
+}
 
-  // Estado reactivo
-  const showNewCarDialog = ref(false)
-  const showServicesDialog = ref(false)
-  const showNewServiceDialog = ref(false)
-  const showEmployeeDialog = ref(false)
-  const validForm = ref(false)
+// Estado reactivo
+const showNewCarDialog = ref(false)
+const showServicesDialog = ref(false)
+const showNewServiceDialog = ref(false)
+const showEmployeeDialog = ref(false)
+const validForm = ref(false)
 
-  const selectedCar = ref<Carro | null>(null)
-  const selectedService = ref<Servicio | null>(null)
-  const selectedEmployees = ref<Empleado[]>([])
+const selectedCar = ref<Carro | null>(null)
+const selectedService = ref<Servicio | null>(null)
+const selectedEmployees = ref<Empleado[]>([])
 
-  // Formularios
-  const newCar = reactive({
-    marca: '',
-    modelo: '',
-    año: new Date().getFullYear(),
-    color: '',
-    placa: '',
-    chasis: '',
-    motor: '',
-    nit: ''
-  })
+// Reglas de validación
+const rules = {
+  required: (value: string) => !!value || 'Este campo es requerido'
+}
 
-  const newService = reactive({
-    nombre: '',
-    descripcion: '',
-    precio: 0,
-    tipo: 'Correctivo' as 'Correctivo' | 'Preventivo'
-  })
-
-  // Reglas de validación
-  const rules = {
-    required: (value: string) => !!value || 'Este campo es requerido'
-  }
-
-  // Datos de carros
-  const cars = ref<Carro[]>([])
+// Datos de carros
+const cars = ref<Carro[]>([])
 
 const loadCars = async () => {
   try {
@@ -82,8 +63,10 @@ const loadCars = async () => {
         'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
       }
     })
-    if (!res.ok) throw new Error(`Error cargando vehículos: ${res.status}`)
-    
+    if (!res.ok) {
+      throw new Error(`Error cargando vehículos: ${res.status}`)
+    }
+
     const data = await res.json()
 
     // Mapear la estructura que espera tu template
@@ -99,11 +82,12 @@ const loadCars = async () => {
       owner: car.owner,
       servicios: []  // Si quieres más tarde agregar servicios
     }))
-    
+
     console.log('Vehículos cargados:', cars.value)
 
   } catch (error: any) {
     console.error('No se pudieron cargar los vehículos:', error.message)
+    errorMss.value = error.message || "No se pudieron cargar los vehiculos"
   }
 }
 
@@ -112,136 +96,29 @@ onMounted(() => {
   loadCars()
 })
 
-  // Métodos
-  const openCarServices = (car: Carro) => {
-    selectedCar.value = car
-    showServicesDialog.value = true
-  }
+// Métodos
+const openCarServices = (car: Carro) => {
+  selectedCar.value = car
+  showServicesDialog.value = true
+}
 
-  const closeServicesDialog = () => {
-    showServicesDialog.value = false
-    selectedCar.value = null
-  }
+const closeServicesDialog = () => {
+  showServicesDialog.value = false
+  selectedCar.value = null
+}
 
 const openAddCar = () => {
-    router.push({ name: 'createVehicle' })
+  router.push({ name: 'createVehicle' })
 }
 
 const addServiceRedirect = (carId: number) => {
-   router.push({ name: 'addWork', params: { vehicleId: carId} })
+  router.push({ name: 'addWork', params: { vehicleId: carId } })
 }
 
 const viewDetailsRedirect = (carId: number) => {
-   router.push({ name: 'viewVehicleDetails', params: { vehicleId: carId} })
+  router.push({ name: 'viewVehicleDetails', params: { vehicleId: carId } })
 }
 
-
-  const closeNewCarDialog = () => {
-    showNewCarDialog.value = false
-    Object.assign(newCar, {
-      marca: '',
-      modelo: '',
-      año: new Date().getFullYear(),
-      color: '',
-      placa: '',
-      chasis: '',
-      motor: '',
-      nit: ''
-    })
-  }
-
-  const addNewService = () => {
-    if (selectedCar.value) {
-      const serviceData: Servicio = {
-        id: Date.now(),
-        nombre: newService.nombre,
-        descripcion: newService.descripcion,
-        precio: newService.precio,
-        tipo: newService.tipo,
-        estado: 'Pendiente',
-        pagado: false,
-        cancelado: false,
-        empleados: []
-      }
-      
-      selectedCar.value.servicios.push(serviceData)
-      closeNewServiceDialog()
-    }
-  }
-
-  const closeNewServiceDialog = () => {
-    showNewServiceDialog.value = false
-    newService.nombre = ''
-    newService.descripcion = ''
-    newService.precio = 0
-    newService.tipo = 'Correctivo'
-  }
-
-  const openEmployeeSelector = (service: Servicio) => {
-    selectedService.value = service
-    selectedEmployees.value = [...service.empleados]
-    showEmployeeDialog.value = true
-  }
-
-  const closeEmployeeDialog = () => {
-    showEmployeeDialog.value = false
-    selectedService.value = null
-    selectedEmployees.value = []
-  }
-
-  const assignEmployees = () => {
-    if (selectedService.value) {
-      selectedService.value.empleados = [...selectedEmployees.value]
-      closeEmployeeDialog()
-    }
-  }
-
-  const processPayment = (service: Servicio) => {
-    // Marcar como finalizado y pagado
-    service.estado = 'Finalizado'
-    service.pagado = true
-    alert(`¡Pago procesado exitosamente!\nServicio: ${service.nombre}\nMonto: Q${service.precio}`)
-  }
-
-  const cancelService = (service: Servicio) => {
-    if (confirm(`¿Está seguro de que desea cancelar el servicio "${service.nombre}"?`)) {
-      service.estado = 'Cancelado'
-      service.cancelado = true
-      alert(`Servicio "${service.nombre}" cancelado.`)
-    }
-  }
-
-  const getCarStatus = (car: Carro) => {
-    if (car.servicios.length === 0) return 'Sin servicios'
-    
-    const pendientes = car.servicios.filter(s => s.estado === 'Pendiente').length
-    const enProceso = car.servicios.filter(s => s.estado === 'En proceso').length
-    //const finalizados = car.servicios.filter(s => s.estado === 'Finalizado').length
-    
-    if (enProceso > 0) return 'En proceso'
-    if (pendientes > 0) return 'Pendiente'
-    return 'Completo'
-  }
-
-  const getStatusColor = (car: Carro) => {
-    const status = getCarStatus(car)
-    switch (status) {
-      case 'En proceso': return 'blue'
-      case 'Pendiente': return 'orange'
-      case 'Completo': return 'green'
-      default: return 'grey'
-    }
-  }
-
-  const getServiceStatusColor = (estado: string) => {
-    switch (estado) {
-      case 'Pendiente': return 'orange'
-      case 'En proceso': return 'blue'
-      case 'Finalizado': return 'green'
-      case 'Cancelado': return 'red'
-      default: return 'grey'
-    }
-  }
 </script>
 
 <template>
@@ -270,23 +147,16 @@ const viewDetailsRedirect = (carId: number) => {
           </v-col>
         </v-row>
 
-        <v-alert
-          v-if="errorMss"
-            type="error"
-            dense
-            class="mt-3"
-          >
+        <v-alert v-if="errorMss" type="error" dense class="mt-3">
           {{ errorMss }}
         </v-alert>
+
+        <!--Busqueda de vehiculos-->
 
         <!-- Botón para agregar nuevo carro -->
         <v-row class="mb-4">
           <v-col cols="12" class="text-center">
-            <v-btn
-              large
-              class="custom-btn"
-              @click="openAddCar"
-            >
+            <v-btn large class="custom-btn" @click="openAddCar">
               <v-icon left>mdi-car-plus</v-icon>
               Agregar Nuevo Vehículo
             </v-btn>
@@ -295,20 +165,8 @@ const viewDetailsRedirect = (carId: number) => {
 
         <!-- Lista de carros -->
         <v-row>
-          <v-col 
-            v-for="car in cars" 
-            :key="car.id" 
-            cols="12" 
-            sm="6" 
-            md="4" 
-            lg="3"
-          >
-            <v-card 
-              class="car-card elevation-8" 
-              rounded="lg"
-              @click="openCarServices(car)"
-              hover
-            >
+          <v-col v-for="car in cars" :key="car.id" cols="12" sm="6" md="4" lg="3">
+            <v-card class="car-card elevation-8" rounded="lg" @click="openCarServices(car)" hover>
               <div class="car-header">
                 <v-icon size="32" color="white">mdi-car</v-icon>
                 <div class="car-plate">{{ car.placa }}</div>
@@ -323,13 +181,6 @@ const viewDetailsRedirect = (carId: number) => {
                 </div>
               </v-card-text>
               <v-card-actions class="pt-0">
-                <v-chip 
-                  small 
-                  :color="getStatusColor(car)" 
-                  text-color="white"
-                >
-                  {{ getCarStatus(car) }}
-                </v-chip>
                 <v-spacer></v-spacer>
                 <v-btn small text color="orange darken-2">
                   Ver Opciones
@@ -353,22 +204,14 @@ const viewDetailsRedirect = (carId: number) => {
             <v-card-text class="pa-0">
               <!-- Botón para agregar nuevo servicio -->
               <div class="pa-4 border-bottom">
-                <v-btn 
-                  small
-                  class="custom-btn"
-                  @click="addServiceRedirect(selectedCar.id)"
-                >
+                <v-btn small class="custom-btn" @click="addServiceRedirect(selectedCar.id)">
                   <v-icon left>mdi-plus</v-icon>
                   Agregar Servicio
                 </v-btn>
               </div>
               <!-- Botón para ver detalles -->
               <div class="pa-4 border-bottom">
-                <v-btn 
-                  small
-                  class="custom-btn"
-                  @click="viewDetailsRedirect(selectedCar.id)"
-                >
+                <v-btn small class="custom-btn" @click="viewDetailsRedirect(selectedCar.id)">
                   <v-icon left>mdi-plus</v-icon>
                   Detalles
                 </v-btn>
@@ -390,43 +233,84 @@ const viewDetailsRedirect = (carId: number) => {
 
 
 <style scoped>
-  .cars-container {
+.cars-container {
   background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
   background-attachment: fixed;
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  }
+}
 
-  .floating-icons {
+.floating-icons {
   position: fixed;
   width: 100%;
   height: 100%;
   pointer-events: none;
   z-index: 1;
-  }
+}
 
-  .floating-icon {
+.floating-icon {
   position: absolute;
   opacity: 0.05;
   color: #ff6b35;
   animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
   }
 
-  @keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(5deg); }
+  50% {
+    transform: translateY(-20px) rotate(5deg);
   }
+}
 
-  .floating-icon:nth-child(1) { top: 10%; left: 10%; animation-delay: 0s; }
-  .floating-icon:nth-child(2) { top: 20%; right: 15%; animation-delay: 1s; }
-  .floating-icon:nth-child(3) { bottom: 30%; left: 20%; animation-delay: 2s; }
-  .floating-icon:nth-child(4) { bottom: 20%; right: 10%; animation-delay: 3s; }
-  .floating-icon:nth-child(5) { top: 50%; left: 5%; animation-delay: 4s; }
-  .floating-icon:nth-child(6) { top: 60%; right: 25%; animation-delay: 5s; }
-  .floating-icon:nth-child(7) { bottom: 60%; left: 50%; animation-delay: 6s; }
+.floating-icon:nth-child(1) {
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
 
-  .header-section {
+.floating-icon:nth-child(2) {
+  top: 20%;
+  right: 15%;
+  animation-delay: 1s;
+}
+
+.floating-icon:nth-child(3) {
+  bottom: 30%;
+  left: 20%;
+  animation-delay: 2s;
+}
+
+.floating-icon:nth-child(4) {
+  bottom: 20%;
+  right: 10%;
+  animation-delay: 3s;
+}
+
+.floating-icon:nth-child(5) {
+  top: 50%;
+  left: 5%;
+  animation-delay: 4s;
+}
+
+.floating-icon:nth-child(6) {
+  top: 60%;
+  right: 25%;
+  animation-delay: 5s;
+}
+
+.floating-icon:nth-child(7) {
+  bottom: 60%;
+  left: 50%;
+  animation-delay: 6s;
+}
+
+.header-section {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 16px;
@@ -434,9 +318,9 @@ const viewDetailsRedirect = (carId: number) => {
   position: relative;
   z-index: 2;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  }
+}
 
-  .car-card {
+.car-card {
   background: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -444,36 +328,36 @@ const viewDetailsRedirect = (carId: number) => {
   z-index: 2;
   cursor: pointer;
   transition: all 0.3s ease;
-  }
+}
 
-  .car-card:hover {
+.car-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px rgba(255, 107, 53, 0.2) !important;
-  }
+}
 
-  .car-header {
+.car-header {
   background: linear-gradient(45deg, #ff6b35, #f7931e);
   color: white;
   padding: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  }
+}
 
-  .car-plate {
+.car-plate {
   background: rgba(255, 255, 255, 0.2);
   padding: 4px 12px;
   border-radius: 16px;
   font-weight: bold;
   font-size: 14px;
-  }
+}
 
-  .car-details p {
+.car-details p {
   font-size: 14px;
   color: #666;
-  }
+}
 
-  .custom-btn {
+.custom-btn {
   background: linear-gradient(45deg, #ff6b35, #f7931e) !important;
   color: white !important;
   font-weight: bold;
@@ -481,90 +365,91 @@ const viewDetailsRedirect = (carId: number) => {
   letter-spacing: 1px;
   transition: all 0.3s ease;
   border-radius: 20px !important;
-  }
+}
 
-  .custom-btn:hover {
+.custom-btn:hover {
   background: linear-gradient(45deg, #f7931e, #ff6b35) !important;
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3) !important;
-  }
+}
 
-  .custom-btn:disabled {
+.custom-btn:disabled {
   background: #ccc !important;
   color: #666 !important;
   transform: none !important;
   box-shadow: none !important;
-  }
+}
 
-  .dialog-card {
+.dialog-card {
   background: rgba(255, 255, 255, 0.98) !important;
   backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  }
+}
 
-  .dialog-header {
+.dialog-header {
   background: linear-gradient(45deg, #ff6b35, #f7931e);
   color: white;
   padding: 24px;
   display: flex;
   align-items: center;
-  }
+}
 
-  .services-list {
+.services-list {
   max-height: 400px;
   overflow-y: auto;
-  }
+}
 
-  .service-item {
+.service-item {
   transition: background-color 0.2s ease;
-  }
+}
 
-  .service-item:hover {
+.service-item:hover {
   background-color: rgba(255, 107, 53, 0.05);
-  }
+}
 
-  .border-bottom {
+.border-bottom {
   border-bottom: 1px solid #e0e0e0;
-  }
+}
 
-  .status-toggle .v-btn {
+.status-toggle .v-btn {
   font-size: 12px !important;
-  }
+}
 
-  .employee-list {
+.employee-list {
   max-height: 300px;
   overflow-y: auto;
-  }
+}
 
-  .d-flex.gap-2 {
+.d-flex.gap-2 {
   gap: 8px;
-  }
-  .header-section {
-    padding: 24px 16px;
-  }
+}
 
-  .header-section h1 {
-    font-size: 1.8rem !important;
-  }
+.header-section {
+  padding: 24px 16px;
+}
 
-  .car-header {
-    padding: 12px;
-  }
+.header-section h1 {
+  font-size: 1.8rem !important;
+}
 
-  .dialog-header {
-    padding: 16px;
-  }
+.car-header {
+  padding: 12px;
+}
 
-  .dialog-header h2 {
-    font-size: 1.3rem !important;
-  }
+.dialog-header {
+  padding: 16px;
+}
 
-  .status-toggle {
-    flex-direction: column;
-  }
+.dialog-header h2 {
+  font-size: 1.3rem !important;
+}
 
-  .status-toggle .v-btn {
-    margin-bottom: 4px;
-    font-size: 10px !important;
-  }
+.status-toggle {
+  flex-direction: column;
+}
+
+.status-toggle .v-btn {
+  margin-bottom: 4px;
+  font-size: 10px !important;
+}
 </style>
