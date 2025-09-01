@@ -196,7 +196,7 @@ import { ref, reactive, computed } from 'vue'
         
         // Redirigir a la página de restaurar después de 2 segundos
         setTimeout(() => {
-          router.push('/restaurar')
+          router.push('/restore')
           showForgotPasswordDialog.value = false
         }, 2000)
         

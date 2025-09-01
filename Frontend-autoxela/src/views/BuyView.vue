@@ -153,11 +153,9 @@
   const supplierInfo = ref<Supplier | null>(null)
   const loadingSupplierInfo = ref(false)
 
-  // User role (this would come from your auth system)
-  const userRole = ref('ADMINISTRADOR')
-
   // Filters
   const filters = ref<Filters>({})
+
 
   // Options
   const itemsPerPageOptions = [
@@ -192,6 +190,17 @@
       'Content-Type': 'application/json'
     }
   }
+
+  const userType = ref<string>('')
+
+  // En la función loadUserData (que debes agregar o modificar):
+  const loadUserData = () => {
+    const newUserType = localStorage.getItem('userType') || ''
+    if (userType.value !== newUserType) userType.value = newUserType
+  }
+
+  // Agregar computed properties para verificar roles:
+  const isAdmin = computed(() => userType.value === 'Administrador')
 
   // Table headers - Updated to match API response
   const headers = [
@@ -658,6 +667,16 @@
 
   // Lifecycle
   onMounted(() => {
+    loadUserData()
+    
+    window.addEventListener('user-logged-in', loadUserData)
+    window.addEventListener('user-logged-out', loadUserData)
+    
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'userType') {
+        loadUserData()
+      }
+    })
     fetchPurchaseOrders()
     fetchSuppliers()
     fetchStatuses()
@@ -694,7 +713,7 @@
                   </div>
                   <v-spacer></v-spacer>
                   <v-btn
-                    v-if="userRole === 'ADMINISTRADOR'"
+                    v-if="isAdmin"
                     class="custom-btn"
                     @click="showCreateDialog = true"
                     :disabled="creating"
@@ -814,7 +833,7 @@
                 :page-text="'{0}-{1} de {2}'"
               >
                 <!-- Status Column -->
-                <template v-slot:item.status.name="{ item }">
+                <template v-slot:[`item.status.name`]="{ item }">
                   <v-chip :color="getStatusColor(item.status.name)" text-color="white" small>
                     <v-icon left small>{{ getStatusIcon(item.status.name) }}</v-icon>
                     {{ item.status.name }}
@@ -822,17 +841,17 @@
                 </template>
 
                 <!-- Total Column -->
-                <template v-slot:item.totalAmount="{ item }">
+                <template v-slot:[`item.totalAmount`]="{ item }">
                   Q{{ item.totalAmount.toFixed(2) }}
                 </template>
 
                 <!-- Actions Column -->
-                <template v-slot:item.actions="{ item }">
+                <template v-slot:[`item.actions`]="{ item }">
                   <v-btn icon small color="blue" @click="viewOrder(item)" class="mr-1">
                     <v-icon small>mdi-eye</v-icon>
                   </v-btn>
                   <v-btn
-                    v-if="userRole === 'ADMINISTRADOR'"
+                    v-if="isAdmin"
                     icon
                     small
                     color="orange"
@@ -842,7 +861,7 @@
                     <v-icon small>mdi-pencil</v-icon>
                   </v-btn>
                   <v-btn
-                    v-if="userRole === 'ADMINISTRADOR' && item.status.name !== 'Completado'"
+                    v-if="isAdmin && item.status.name !== 'Completado'"
                     icon
                     small
                     color="green"
@@ -1240,13 +1259,13 @@
               :items-per-page="10"
               no-data-text="No hay items"
             >
-              <template v-slot:item.unitPrice="{ item }">
+              <template v-slot:[`item.unitPrice`]="{ item }">
                 Q{{ item.unitPrice.toFixed(2) }}
               </template>
-              <template v-slot:item.totalPrice="{ item }">
+              <template v-slot:[`item.totalPrice`]="{ item }">
                 Q{{ item.totalPrice.toFixed(2) }}
               </template>
-              <template v-slot:item.isFullyReceived="{ item }">
+              <template v-slot:[`item.isFullyReceived`]="{ item }">
                 <v-chip :color="item.isFullyReceived ? 'success' : 'warning'" text-color="white" small>
                   {{ item.isFullyReceived ? 'Completo' : 'Pendiente' }}
                 </v-chip>
