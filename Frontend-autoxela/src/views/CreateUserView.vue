@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface UserTypeOption {
   value: number;
@@ -203,19 +204,19 @@ const createAccount = async () => {
   }
 
   // Determinar endpoint y token
-  let endpoint = 'http://localhost:8080/api/v1/auth/register'
+  let endpoint = `${API_URL}/api/v1/auth/register`
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
   if (userType.value === 2) {
-    endpoint = 'http://localhost:8080/api/v1/employees'
+    endpoint = `${API_URL}/api/v1/employees`
     const token = localStorage.getItem('accessToken')
     if (token) {
       headers.Authorization = `Bearer ${token}`
     }
   } else if (userType.value === 3) {
-    endpoint = 'http://localhost:8080/api/v1/specialists'
+    endpoint = `${API_URL}/api/v1/specialists`
     const token = localStorage.getItem('accessToken')
     if (token) {
       headers.Authorization = `Bearer ${token}`
