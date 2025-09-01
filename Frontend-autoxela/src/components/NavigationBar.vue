@@ -251,6 +251,8 @@
                 <v-list-subheader class="text-orange-accent-2 font-weight-bold">
                     <v-icon class="mr-2">mdi-wrench</v-icon>
                     PANEL DE MECÁNICO
+
+                    <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
                 </v-list-subheader>
                 
                 <v-list-item to="/inventory" title="Inventario" prepend-icon="mdi-package-variant" router></v-list-item>
