@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import router from "@/router";
 import { onMounted, ref } from "vue"
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -58,7 +59,6 @@ async function fetchWorkOrders(page = 0, size = 10, sortBy = "createdAt", sortDi
   }
 }
 
-
 const errorMessage = ref<string>("");
 async function approveWorkOrder(workOrderId: number | string) {
   try {
@@ -116,6 +116,9 @@ async function cancelWorkOrder(workOrderId: number | string) {
   }
 }
 
+function goToAddProgress(workOrderId: number) {
+  router.push({ name: "workordersAddProgress", params: { workOrderId } });
+}
 
 
 onMounted(() => {
@@ -188,7 +191,7 @@ const showOwnerDetails = (owner: any) => {
             <v-btn color="orange-darken-4" small @click="showOwnerDetails(order.vehicle.owner)">
               <v-icon left>mdi-account</v-icon> Dueño
             </v-btn>
-            <v-btn color="orange-darken-4" small @click="showOwnerDetails(order.vehicle.owner)">
+            <v-btn color="orange-darken-4" small @click="goToAddProgress(order.id)">
               <v-icon left>mdi-doc</v-icon> Progreso
             </v-btn>
             <v-btn color="green" small @click="approveWorkOrder(order.id)">
