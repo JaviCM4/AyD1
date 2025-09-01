@@ -4,6 +4,14 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const props = defineProps<{ vehicleId: string }>()
+
+const serviceTypes = [
+  { id: 1, name: 'Correctivo', description: 'Trabajo de reparación por fallas detectadas' },
+  { id: 2, name: 'Preventivo', description: 'Mantenimiento programado y prevención' }
+]
+
+
 const vehicleId = ref<number | null>(null);
 const serviceTypeId = ref<number | null>(null);
 const problemDescription = ref('');
@@ -19,13 +27,13 @@ const submitWorkOrder = async () => {
   successMessage.value = '';
   errorMessage.value = '';
   
-  if (!vehicleId.value || !serviceTypeId.value || !problemDescription.value || !estimatedHours.value || !estimatedCost.value || !priorityLevel.value) {
+  if (!serviceTypeId.value || !problemDescription.value || !estimatedHours.value || !estimatedCost.value || !priorityLevel.value) {
     errorMessage.value = 'Por favor complete todos los campos';
     return;
   }
 
   const requestBody = {
-    vehicleId: vehicleId.value,
+    vehicleId: props.vehicleId,
     serviceTypeId: serviceTypeId.value,
     problemDescription: problemDescription.value,
     estimatedHours: estimatedHours.value,
@@ -36,19 +44,39 @@ const submitWorkOrder = async () => {
   loading.value = true;
 
   try {
-    const response = await axios.post(`${API_URL}/workorders`, requestBody, {
-      headers: {
-        'Content-Type': 'application/json'
+  const res = await fetch(`${API_URL}/api/v1/workorders`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!res.ok) {
+    // Intentamos leer el mensaje de error que envía el backend
+    let errorMsg = `Error al crear la orden: ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.message) {
+        errorMsg = errorData.message;
       }
-    });
-    successMessage.value = 'Orden de trabajo creada exitosamente';
-    console.log(response.data);
-  } catch (error: any) {
-    console.error(error);
-    errorMessage.value = error.response?.data?.message || 'Error al crear la orden';
-  } finally {
-    loading.value = false;
+    } catch (e) {
+      console.warn('No se pudo parsear el mensaje de error del backend', e);
+    }
+    throw new Error(errorMsg);
   }
+
+  const data = await res.json();
+  successMessage.value = 'Orden de trabajo creada exitosamente';
+  console.log(data);
+
+} catch (error: any) {
+  console.error(error);
+  errorMessage.value = error.message || 'Error al crear la orden';
+} finally {
+  loading.value = false;
+}
+
 };
 </script>
 
@@ -67,21 +95,15 @@ const submitWorkOrder = async () => {
           </v-alert>
 
           <v-form @submit.prevent="submitWorkOrder">
-            <v-text-field
-              v-model="vehicleId"
-              label="ID del Vehículo"
-              type="number"
-              required
-              outlined
-              class="mb-4"
-            />
 
-            <v-text-field
+            <v-select
               v-model="serviceTypeId"
-              label="ID del Tipo de Servicio"
-              type="number"
-              required
+              :items="serviceTypes"
+              item-value="id"
+              item-title="name"
+              label="Tipo de Servicio"
               outlined
+              required
               class="mb-4"
             />
 
@@ -137,16 +159,3 @@ const submitWorkOrder = async () => {
     </v-row>
   </v-container>
 </template>
-
-<style scoped>
-.main-section {
-  padding: 80px 0;
-  background: #f57b18;
-}
-
-.company-info {
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 16px !important;
-}
-</style>
