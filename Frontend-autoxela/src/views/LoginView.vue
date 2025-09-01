@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import router from '@/router'
 import { ref, reactive, computed } from 'vue'
+  const API_URL = import.meta.env.VITE_API_URL;
 
   // Estado reactivo del formulario
   const username = ref('')
@@ -62,7 +63,7 @@ import { ref, reactive, computed } from 'vue'
     }
     
     try {
-      const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +104,7 @@ import { ref, reactive, computed } from 'vue'
     }
     
     try {
-      const response = await fetch('http://localhost:8080/api/v1/auth/verify-2fa', {
+      const response = await fetch(`${API_URL}/api/v1/auth/verify-2fa`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,7 +180,7 @@ import { ref, reactive, computed } from 'vue'
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/v1/auth/forgot-password', {
+      const response = await fetch(`${API_URL}/api/v1/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -195,7 +196,7 @@ import { ref, reactive, computed } from 'vue'
         
         // Redirigir a la página de restaurar después de 2 segundos
         setTimeout(() => {
-          router.push('/restaurar')
+          router.push('/restore')
           showForgotPasswordDialog.value = false
         }, 2000)
         

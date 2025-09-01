@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface UserTypeOption {
   value: number;
@@ -10,6 +11,12 @@ interface UserTypeOption {
 interface GenderOption {
   value: number;
   text: string;
+}
+
+interface SpecializationOption {
+  id: number;
+  name: string;
+  icon: string;
 }
 
 // Elementos del formulario reactivos
@@ -27,21 +34,63 @@ const userType = ref<number | null>(null)
 const showPassword = ref(false)
 const loading = ref(false)
 
+// Especialización
+const showSpecializationDialog = ref(false)
+const selectedSpecializations = ref<number[]>([])
+const certificationDate = ref('')
+
+// Dirección
+const showAddressDialog = ref(false)
+const address = ref('')
+const selectedMunicipalityId = ref<number | null>(null)
+const municipalities = ref<any[]>([])
+const addressDetailId = ref<number | null>(null)
+
+// Proveedor
+const showSupplierDialog = ref(false)
+const companyName = ref('')
+const contactEmail = ref('')
+const contactPhone = ref('')
+const createdUserCui = ref('')
+
+// Búsqueda de dirección por ID
+const addressSearchId = ref('')
+const searchedAddressInfo = ref<any>(null)
+const addressSearchLoading = ref(false)
+const addressSearchError = ref('')
+
 // Mensajes de estado
 const successMessage = ref('')
 const errorMessage = ref('')
 const formRef = ref(null)
 
 const userTypeOptions: UserTypeOption[] = [
-  { value: 1, text: 'Cliente', icon: 'mdi-account' },
-  { value: 2, text: 'Proveedor', icon: 'mdi-truck-delivery' },
-  { value: 3, text: 'Empleado', icon: 'mdi-account-tie' },
-  { value: 4, text: 'Especialista', icon: 'mdi-account-wrench' }
+  { value: 2, text: 'Empleado', icon: 'mdi-account' },
+  { value: 3, text: 'Especialista', icon: 'mdi-truck-delivery' },
+  { value: 4, text: 'Cliente', icon: 'mdi-account-tie' },
+  { value: 5, text: 'Proveedor', icon: 'mdi-account-wrench' }
 ]
 
 const genderOptions: GenderOption[] = [
   { value: 1, text: 'Masculino' },
   { value: 2, text: 'Femenino' }
+]
+
+const specializationOptions: SpecializationOption[] = [
+  { id: 1, name: 'Electricidad automotriz', icon: 'mdi-lightning-bolt' },
+  { id: 2, name: 'Diagnóstico computarizado', icon: 'mdi-laptop' },
+  { id: 3, name: 'Sistemas de frenos', icon: 'mdi-car-brake-parking' },
+  { id: 4, name: 'Reparación de motores', icon: 'mdi-engine' },
+  { id: 5, name: 'Transmisión', icon: 'mdi-cog' },
+  { id: 6, name: 'Aire acondicionado', icon: 'mdi-air-conditioner' },
+  { id: 7, name: 'Suspensión', icon: 'mdi-car-side' },
+  { id: 8, name: 'Dirección', icon: 'mdi-steering' },
+  { id: 9, name: 'Inyección electrónica', icon: 'mdi-chip' },
+  { id: 10, name: 'Turbo y sobrealimentación', icon: 'mdi-turbine' },
+  { id: 11, name: 'Híbridos', icon: 'mdi-car-electric' },
+  { id: 12, name: 'Diésel', icon: 'mdi-gas-station' },
+  { id: 13, name: 'Carrocería', icon: 'mdi-car' },
+  { id: 14, name: 'Pintura', icon: 'mdi-palette' }
 ]
 
 const rules = reactive({
@@ -74,7 +123,7 @@ const rules = reactive({
 })
 
 const isFormValid = computed(() => {
-  return cui.value && 
+  const baseValid = cui.value && 
          nit.value &&
          firstName.value && 
          lastName.value && 
@@ -88,7 +137,272 @@ const isFormValid = computed(() => {
          password.value.length >= 6 &&
          cui.value.length === 13 &&
          nit.value.length >= 8
+
+  // Para empleados y especialistas, también necesitamos especialización
+  if ((userType.value === 2 || userType.value === 3)) {
+    return baseValid && selectedSpecializations.value.length > 0 && certificationDate.value
+  }
+  
+  return baseValid
 })
+
+const isEmployeeOrSpecialist = computed(() => {
+  return userType.value === 2 || userType.value === 3
+})
+
+const getSelectedSpecializationsText = computed(() => {
+  if (selectedSpecializations.value.length === 0) return 'Ninguna especialización seleccionada'
+  const names = selectedSpecializations.value.map(id => 
+    specializationOptions.find(opt => opt.id === id)?.name
+  ).filter(Boolean)
+  return names.join(', ')
+})
+
+const getAddressDisplayText = computed(() => {
+  if (!address.value || !selectedMunicipalityId.value) return 'No hay dirección configurada'
+  const municipality = municipalities.value.find(m => m.id === selectedMunicipalityId.value)
+  const municipalityName = municipality ? municipality.name : 'Municipio desconocido'
+  const departmentName = municipality && municipality.department ? municipality.department.name : ''
+  
+  return departmentName ? 
+    `${address.value} - ${municipalityName}, ${departmentName}` : 
+    `${address.value} - ${municipalityName}`
+})
+
+const getSearchedAddressDisplayText = computed(() => {
+  if (!searchedAddressInfo.value) return ''
+  const { address, municipality } = searchedAddressInfo.value
+  return `${address} - ${municipality.name}, ${municipality.department.name}`
+})
+
+const onUserTypeChange = (value: number) => {
+  userType.value = value
+  if (value === 2 || value === 3) {
+    showSpecializationDialog.value = true
+  } else {
+    selectedSpecializations.value = []
+    certificationDate.value = ''
+  }
+}
+
+const confirmSpecializations = () => {
+  if (selectedSpecializations.value.length === 0 || !certificationDate.value) {
+    errorMessage.value = 'Debe seleccionar al menos una especialización y fecha de certificación'
+    return
+  }
+  showSpecializationDialog.value = false
+  clearMessages()
+}
+
+const cancelSpecializationSelection = () => {
+  selectedSpecializations.value = []
+  certificationDate.value = ''
+  userType.value = null
+  showSpecializationDialog.value = false
+}
+
+const openSpecializationDialog = () => {
+  if (isEmployeeOrSpecialist.value) {
+    showSpecializationDialog.value = true
+  }
+}
+
+// Funciones para manejo de direcciones
+const loadMunicipalities = async () => {
+  try {
+    const token = localStorage.getItem('accessToken')
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await fetch('http://localhost:8080/api/v1/reference/municipalities', {
+      method: 'GET',
+      headers
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      municipalities.value = data
+    } else {
+      console.error('Error al cargar municipios')
+    }
+  } catch (error) {
+    console.error('Error al cargar municipios:', error)
+  }
+}
+
+const openAddressDialog = () => {
+  if (municipalities.value.length === 0) {
+    loadMunicipalities()
+  }
+  showAddressDialog.value = true
+}
+
+const confirmAddress = async () => {
+  if (!address.value || !selectedMunicipalityId.value) {
+    errorMessage.value = 'Debe completar la dirección y seleccionar un municipio'
+    return
+  }
+
+  try {
+    const token = localStorage.getItem('accessToken')
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await fetch('http://localhost:8080/api/v1/reference/addresses', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        address: address.value,
+        municipalityId: selectedMunicipalityId.value.id
+      })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      addressDetailId.value = data.id
+      showAddressDialog.value = false
+      successMessage.value = 'Dirección guardada exitosamente'
+      setTimeout(() => successMessage.value = '', 5000)
+    } else {
+      const errorData = await response.json()
+      errorMessage.value = errorData.message || 'Error al guardar la dirección'
+    }
+  } catch (error) {
+    errorMessage.value = 'Error de conexión al guardar la dirección'
+    console.error('Error:', error)
+  }
+}
+
+const cancelAddressDialog = () => {
+  address.value = ''
+  selectedMunicipalityId.value = null
+  showAddressDialog.value = false
+}
+
+// Nueva función para buscar dirección por ID
+const searchAddressById = async () => {
+  if (!addressSearchId.value || !/^\d+$/.test(addressSearchId.value)) {
+    addressSearchError.value = 'Debe ingresar un ID válido (solo números)'
+    return
+  }
+
+  addressSearchLoading.value = true
+  addressSearchError.value = ''
+  searchedAddressInfo.value = null
+
+  try {
+    const token = localStorage.getItem('accessToken')
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await fetch(`http://localhost:8080/api/v1/reference/addresses/${addressSearchId.value}`, {
+      method: 'GET',
+      headers
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      searchedAddressInfo.value = data
+    } else if (response.status === 404) {
+      addressSearchError.value = 'No se encontró ninguna dirección con ese ID'
+    } else {
+      addressSearchError.value = 'Error al buscar la dirección'
+    }
+  } catch (error) {
+    addressSearchError.value = 'Error de conexión al buscar la dirección'
+    console.error('Error:', error)
+  } finally {
+    addressSearchLoading.value = false
+  }
+}
+
+const selectSearchedAddress = () => {
+  if (searchedAddressInfo.value) {
+    addressDetailId.value = searchedAddressInfo.value.id
+  }
+}
+
+// Funciones para manejo de proveedores
+const openSupplierDialog = (userCui: string) => {
+  createdUserCui.value = userCui
+  companyName.value = ''
+  contactEmail.value = email.value // Pre-llenar con el email del usuario
+  contactPhone.value = phone.value // Pre-llenar con el teléfono del usuario
+  // Limpiar búsqueda de dirección
+  addressSearchId.value = ''
+  searchedAddressInfo.value = null
+  addressSearchError.value = ''
+  showSupplierDialog.value = true
+}
+
+const confirmSupplier = async () => {
+  if (!companyName.value || !contactEmail.value || !contactPhone.value || !addressDetailId.value) {
+    errorMessage.value = 'Debe completar todos los campos del proveedor y seleccionar una dirección'
+    return
+  }
+
+  try {
+    const token = localStorage.getItem('accessToken')
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await fetch('http://localhost:8080/api/v1/inventory/suppliers', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        personCui: createdUserCui.value,
+        companyName: companyName.value,
+        contactEmail: contactEmail.value,
+        contactPhone: contactPhone.value,
+        addressDetailId: addressDetailId.value
+      })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      showSupplierDialog.value = false
+      successMessage.value = 'Proveedor creado exitosamente'
+      resetForm()
+      setTimeout(() => successMessage.value = '', 5000)
+    } else {
+      const errorData = await response.json()
+      errorMessage.value = errorData.message || 'Error al crear el proveedor'
+    }
+  } catch (error) {
+    errorMessage.value = 'Error de conexión al crear el proveedor'
+    console.error('Error:', error)
+  }
+}
+
+const cancelSupplierDialog = () => {
+  companyName.value = ''
+  contactEmail.value = ''
+  contactPhone.value = ''
+  addressSearchId.value = ''
+  searchedAddressInfo.value = null
+  addressSearchError.value = ''
+  showSupplierDialog.value = false
+}
 
 const createAccount = async () => {
   if (!isFormValid.value) {
@@ -99,8 +413,9 @@ const createAccount = async () => {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
-  
-  const requestData = {
+
+  // Preparar datos base
+  const requestData: Record<string, unknown> = {
     cui: cui.value,
     nit: nit.value,
     firstName: firstName.value,
@@ -113,30 +428,59 @@ const createAccount = async () => {
     password: password.value,
     userTypeId: userType.value
   }
+
+  // Agregar especializaciones para empleados y especialistas
+  if (isEmployeeOrSpecialist.value) {
+    requestData.specializations = selectedSpecializations.value.map(id => ({
+      specializationTypeId: id,
+      certificationDate: certificationDate.value
+    }))
+  }
+
+  // Determinar endpoint y token
+  let endpoint = `${API_URL}/api/v1/auth/register`
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (userType.value === 2) {
+    endpoint = `${API_URL}/api/v1/employees`
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  } else if (userType.value === 3) {
+    endpoint = `${API_URL}/api/v1/specialists`
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  }
   
   try {
-    const response = await fetch('http://localhost:8080/api/v1/auth/register', {
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(requestData)
     })
     
     const responseData = await response.json()
     
     if (response.ok) {
-      // Usar el mensaje de la respuesta si existe, o uno por defecto
       successMessage.value = responseData.message || 'Cuenta creada exitosamente'
+      console.log('Datos enviados:', requestData)
       console.log('Cuenta creada exitosamente:', responseData)
       
-      // Limpiar el formulario
-      resetForm()
-      
-      // Hacer que el mensaje desaparezca después de 5 segundos
-      setTimeout(() => {
-        successMessage.value = ''
-      }, 5000)
+      // Si es proveedor, mostrar diálogo de proveedor
+      if (userType.value === 5) {
+        openSupplierDialog(cui.value)
+      } else {
+        resetForm()
+        
+        setTimeout(() => {
+          successMessage.value = ''
+        }, 5000)
+      }
       
     } else {
       errorMessage.value = responseData.message || 'Error al crear la cuenta'
@@ -150,13 +494,11 @@ const createAccount = async () => {
   }
 }
 
-// Función para limpiar mensajes
 const clearMessages = () => {
   successMessage.value = ''
   errorMessage.value = ''
 }
 
-// Función para reiniciar el formulario
 const resetForm = () => {
   cui.value = ''
   nit.value = ''
@@ -169,8 +511,12 @@ const resetForm = () => {
   birthDate.value = ''
   genderId.value = null
   userType.value = null
+  selectedSpecializations.value = []
+  certificationDate.value = ''
+  address.value = ''
+  selectedMunicipalityId.value = null
+  addressDetailId.value = null
   
-  // Resetear el estado de validación del formulario
   if (formRef.value) {
     formRef.value.resetValidation()
   }
@@ -180,7 +526,6 @@ const resetForm = () => {
 <template>
   <v-app>
     <div class="register-container">
-
       <div class="floating-icons">
         <v-icon class="floating-icon" size="24">mdi-car-wrench</v-icon>
         <v-icon class="floating-icon" size="32">mdi-engine</v-icon>
@@ -423,7 +768,7 @@ const resetForm = () => {
                                   :key="option.value"
                                   class="radio-card"
                                   :class="{ 'selected': userType === option.value }"
-                                  @click="userType = option.value"
+                                  @click="onUserTypeChange(option.value)"
                                   elevation="2"
                                   outlined
                                 >
@@ -453,11 +798,54 @@ const resetForm = () => {
                           </div>
                         </v-col>
                       </v-row>
+
+                      <!-- Sección de especialización para empleados y especialistas -->
+                      <v-row v-if="isEmployeeOrSpecialist">
+                        <v-col cols="12">
+                          <v-card outlined class="specialization-card">
+                            <v-card-title class="pb-2">
+                              <v-icon class="mr-2" color="orange darken-2">mdi-star</v-icon>
+                              Especialización
+                            </v-card-title>
+                            <v-card-text>
+                              <v-row>
+                                <v-col cols="12" sm="8">
+                                  <div class="specialization-summary">
+                                    <p class="mb-1"><strong>Especialidades seleccionadas:</strong></p>
+                                    <p class="text-caption">{{ getSelectedSpecializationsText }}</p>
+                                  </div>
+                                </v-col>
+                                <v-col cols="12" sm="4" class="text-right">
+                                  <v-btn
+                                    color="orange darken-2"
+                                    outlined
+                                    small
+                                    @click="openSpecializationDialog"
+                                  >
+                                    <v-icon left small>mdi-cog</v-icon>
+                                    Configurar
+                                  </v-btn>
+                                </v-col>
+                              </v-row>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
                       
                       <!-- Contenedor de botones -->
                       <div class="buttons-container mb-4">
-                        <!-- Botón Crear Cuenta - Izquierda -->
-                        <div class="left-button">
+                        <div class="buttons-row d-flex gap-3">
+                          <v-btn
+                            color="orange darken-1"
+                            outlined
+                            large
+                            @click="openAddressDialog"
+                            class="address-btn"
+                          >
+                            <v-icon left>mdi-map-marker</v-icon>
+                            Gestionar Dirección
+                          </v-btn>
+                          
                           <v-btn
                             type="submit"
                             large
@@ -480,6 +868,376 @@ const resetForm = () => {
           </v-col>
         </v-row>
       </v-container>
+
+      <!-- Diálogo de especialización -->
+      <v-dialog v-model="showSpecializationDialog" max-width="800px" persistent>
+        <v-card>
+          <v-card-title class="headline">
+            <v-icon class="mr-2" color="orange darken-2">mdi-star</v-icon>
+            Seleccionar Especialización
+          </v-card-title>
+          
+          <v-card-text>
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="certificationDate"
+                  label="Fecha de Certificación"
+                  type="date"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-calendar"
+                  hint="Fecha en que obtuvo la certificación"
+                  persistent-hint
+                  class="mb-4"
+                />
+              </v-col>
+            </v-row>
+
+            <p class="mb-4"><strong>Seleccione las especialidades:</strong></p>
+            
+            <div class="specializations-grid">
+              <v-card
+                v-for="spec in specializationOptions"
+                :key="spec.id"
+                class="specialization-option"
+                :class="{ 'selected': selectedSpecializations.includes(spec.id) }"
+                @click="
+                  selectedSpecializations.includes(spec.id)
+                    ? selectedSpecializations.splice(selectedSpecializations.indexOf(spec.id), 1)
+                    : selectedSpecializations.push(spec.id)
+                "
+                outlined
+                elevation="1"
+              >
+                <v-card-text class="pa-3 text-center">
+                  <v-icon
+                    :color="selectedSpecializations.includes(spec.id) ? 'orange darken-2' : 'grey'"
+                    size="32"
+                    class="mb-2"
+                  >
+                    {{ spec.icon }}
+                  </v-icon>
+                  <div 
+                    class="spec-name"
+                    :class="{ 'selected-spec': selectedSpecializations.includes(spec.id) }"
+                  >
+                    {{ spec.name }}
+                  </div>
+                  <v-icon
+                    v-if="selectedSpecializations.includes(spec.id)"
+                    color="orange darken-2"
+                    small
+                    class="mt-1"
+                  >
+                    mdi-check-circle
+                  </v-icon>
+                </v-card-text>
+              </v-card>
+            </div>
+          </v-card-text>
+
+          <v-card-actions class="pa-4">
+            <v-spacer></v-spacer>
+            <v-btn
+              color="grey"
+              text
+              @click="cancelSpecializationSelection"
+            >
+              Cancelar
+            </v-btn>
+            <v-btn
+              color="orange darken-2"
+              @click="confirmSpecializations"
+              :disabled="selectedSpecializations.length === 0 || !certificationDate"
+            >
+              Confirmar
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Diálogo de dirección -->
+      <v-dialog v-model="showAddressDialog" max-width="600px" persistent>
+        <v-card>
+          <v-card-title class="headline">
+            <v-icon class="mr-2" color="orange darken-2">mdi-map-marker</v-icon>
+            Configurar Dirección
+          </v-card-title>
+          
+          <v-card-text>
+            <v-row>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="address"
+                  label="Dirección Completa"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-home"
+                  hint="Ingrese la dirección completa de la ubicación"
+                  persistent-hint
+                  rows="3"
+                  class="mb-4"
+                />
+              </v-col>
+            </v-row>
+
+            <v-row>
+              <v-col cols="12">
+                <v-select
+                  v-model="selectedMunicipalityId"
+                  :items="municipalities"
+                  item-title="name"
+                  item-value="id"
+                  label="Municipio"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-city"
+                  hint="Seleccione el municipio"
+                  persistent-hint
+                  return-object="false"
+                />
+              </v-col>
+            </v-row>
+
+            <v-row v-if="addressDetailId">
+              <v-col cols="12">
+                <v-alert type="success" outlined class="mb-2">
+                  <div class="d-flex align-center">
+                    <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
+                    <div>
+                      <strong>Dirección configurada:</strong><br>
+                      <small>{{ getAddressDisplayText }}</small>
+                    </div>
+                  </div>
+                </v-alert>
+              </v-col>
+            </v-row>
+          </v-card-text>
+
+          <v-card-actions class="pa-4">
+            <v-spacer></v-spacer>
+            <v-btn
+              color="grey"
+              text
+              @click="cancelAddressDialog"
+            >
+              Cancelar
+            </v-btn>
+            <v-btn
+              color="orange darken-2"
+              @click="confirmAddress"
+              :disabled="!address || !selectedMunicipalityId"
+            >
+              Guardar Dirección
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Diálogo de proveedor -->
+      <v-dialog v-model="showSupplierDialog" max-width="700px" persistent>
+        <v-card>
+          <v-card-title class="headline">
+            <v-icon class="mr-2" color="orange darken-2">mdi-account-wrench</v-icon>
+            Configurar Datos de Proveedor
+          </v-card-title>
+          
+          <v-card-text>
+            <v-alert type="info" outlined class="mb-4">
+              <v-icon color="info" class="mr-2">mdi-information</v-icon>
+              Complete los datos adicionales para el proveedor
+            </v-alert>
+
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="companyName"
+                  label="Nombre de la Empresa"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-domain"
+                  hint="Razón social o nombre comercial"
+                  persistent-hint
+                />
+              </v-col>
+            </v-row>
+
+            <v-row>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="contactEmail"
+                  label="Email de Contacto"
+                  type="email"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-email"
+                  hint="Email principal de contacto"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="contactPhone"
+                  label="Teléfono de Contacto"
+                  outlined
+                  dense
+                  required
+                  prepend-inner-icon="mdi-phone"
+                  hint="Teléfono principal de contacto"
+                  persistent-hint
+                />
+              </v-col>
+            </v-row>
+
+            <!-- Sección de búsqueda de dirección -->
+            <v-row>
+              <v-col cols="12">
+                <v-card outlined>
+                  <v-card-title class="pb-2">
+                    <v-icon class="mr-2" color="orange darken-2">mdi-map-marker</v-icon>
+                    Dirección
+                  </v-card-title>
+                  <v-card-text>
+                    <!-- Input de búsqueda por ID -->
+                    <v-row>
+                      <v-col cols="12" sm="8">
+                        <v-text-field
+                          v-model="addressSearchId"
+                          label="ID de Dirección"
+                          outlined
+                          dense
+                          prepend-inner-icon="mdi-magnify"
+                          hint="Ingrese el ID de la dirección a buscar"
+                          persistent-hint
+                          @keyup.enter="searchAddressById"
+                        />
+                      </v-col>
+                      <v-col cols="12" sm="4" class="d-flex align-center">
+                        <v-btn
+                          color="orange darken-2"
+                          @click="searchAddressById"
+                          :loading="addressSearchLoading"
+                          :disabled="!addressSearchId"
+                          outlined
+                          block
+                        >
+                          <v-icon left small>mdi-magnify</v-icon>
+                          Buscar
+                        </v-btn>
+                      </v-col>
+                    </v-row>
+
+                    <!-- Error de búsqueda -->
+                    <v-row v-if="addressSearchError">
+                      <v-col cols="12">
+                        <v-alert type="error" outlined dense class="mb-2">
+                          {{ addressSearchError }}
+                        </v-alert>
+                      </v-col>
+                    </v-row>
+
+                    <!-- Información de la dirección encontrada -->
+                    <v-row v-if="searchedAddressInfo">
+                      <v-col cols="12">
+                        <v-card outlined elevation="1" class="mb-3">
+                          <v-card-text>
+                            <div class="d-flex justify-space-between align-center mb-2">
+                              <strong>Dirección encontrada:</strong>
+                              <v-chip 
+                                small 
+                                color="success" 
+                                outlined
+                              >
+                                ID: {{ searchedAddressInfo.id }}
+                              </v-chip>
+                            </div>
+                            <p class="mb-1">
+                              <v-icon small class="mr-1">mdi-map-marker</v-icon>
+                              {{ getSearchedAddressDisplayText }}
+                            </p>
+                            <div class="text-caption grey--text">
+                              <strong>Dirección:</strong> {{ searchedAddressInfo.address }}<br>
+                              <strong>Municipio:</strong> {{ searchedAddressInfo.municipality.name }}<br>
+                              <strong>Departamento:</strong> {{ searchedAddressInfo.municipality.department.name }}
+                            </div>
+                            <div class="mt-3">
+                              <v-btn
+                                color="orange darken-2"
+                                small
+                                @click="selectSearchedAddress"
+                                :disabled="addressDetailId === searchedAddressInfo.id"
+                              >
+                                <v-icon left small>
+                                  {{ addressDetailId === searchedAddressInfo.id ? 'mdi-check' : 'mdi-plus' }}
+                                </v-icon>
+                                {{ addressDetailId === searchedAddressInfo.id ? 'Seleccionada' : 'Seleccionar' }}
+                              </v-btn>
+                            </div>
+                          </v-card-text>
+                        </v-card>
+                      </v-col>
+                    </v-row>
+
+                    <!-- Dirección actualmente seleccionada -->
+                    <v-row v-if="addressDetailId">
+                      <v-col cols="12">
+                        <v-alert type="success" outlined>
+                          <div class="d-flex align-center justify-space-between">
+                            <div>
+                              <strong>Dirección seleccionada:</strong><br>
+                              <small v-if="searchedAddressInfo && addressDetailId === searchedAddressInfo.id">
+                                {{ getSearchedAddressDisplayText }}
+                              </small>
+                              <small v-else>
+                                ID: {{ addressDetailId }}
+                              </small>
+                            </div>
+                            <v-icon color="success">mdi-check-circle</v-icon>
+                          </div>
+                        </v-alert>
+                      </v-col>
+                    </v-row>
+
+                    <!-- Mensaje si no hay dirección seleccionada -->
+                    <v-row v-if="!addressDetailId && !searchedAddressInfo">
+                      <v-col cols="12">
+                        <v-alert type="info" outlined>
+                          <v-icon color="info" class="mr-2">mdi-information</v-icon>
+                          Busque y seleccione una dirección usando el ID correspondiente.
+                        </v-alert>
+                      </v-col>
+                    </v-row>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+          </v-card-text>
+
+          <v-card-actions class="pa-4">
+            <v-spacer></v-spacer>
+            <v-btn
+              color="grey"
+              text
+              @click="cancelSupplierDialog"
+            >
+              Cancelar
+            </v-btn>
+            <v-btn
+              color="orange darken-2"
+              @click="confirmSupplier"
+              :disabled="!companyName || !contactEmail || !contactPhone || !addressDetailId"
+            >
+              Crear Proveedor
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </div>
   </v-app>
 </template>
