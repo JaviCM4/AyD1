@@ -59,6 +59,65 @@ async function fetchWorkOrders(page = 0, size = 10, sortBy = "createdAt", sortDi
 }
 
 
+const errorMessage = ref<string>("");
+async function approveWorkOrder(workOrderId: number | string) {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/workorders/${workOrderId}/approve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}`);
+    }
+
+    const result = await response.json();
+    alert("Orden aprobada correctamente");
+    fetchWorkOrders(currentPage.value, pageSize.value);
+    return result;
+
+  } catch (error: any) {
+    errorMessage.value = error.message || "Error desconocido";
+    alert(errorMessage.value);
+    console.error("Error aprobando la orden de trabajo:", error.message || error);
+    throw error;
+  }
+}
+
+async function cancelWorkOrder(workOrderId: number | string) {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/workorders/${workOrderId}/cancel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}`);
+    }
+
+    const result = await response.json();
+    alert("Orden cancelada correctamente");
+    fetchWorkOrders(currentPage.value, pageSize.value);
+    return result;
+
+  } catch (error: any) {
+    errorMessage.value = error.message || "Error desconocido";
+    alert(errorMessage.value);
+    console.error("Error cancelando la orden de trabajo:", error.message || error);
+    throw error;
+  }
+}
+
+
+
 onMounted(() => {
   fetchWorkOrders(currentPage.value, pageSize.value);
 });
@@ -128,6 +187,15 @@ const showOwnerDetails = (owner: any) => {
             </v-btn>
             <v-btn color="orange-darken-4" small @click="showOwnerDetails(order.vehicle.owner)">
               <v-icon left>mdi-account</v-icon> Dueño
+            </v-btn>
+            <v-btn color="orange-darken-4" small @click="showOwnerDetails(order.vehicle.owner)">
+              <v-icon left>mdi-doc</v-icon> Progreso
+            </v-btn>
+            <v-btn color="green" small @click="approveWorkOrder(order.id)">
+              <v-icon left>mdi-check</v-icon> Aprobar
+            </v-btn>
+            <v-btn color="red" small @click="cancelWorkOrder(order.id)">
+              <v-icon left>mdi-trash-can</v-icon> Cancelar
             </v-btn>
           </td>
         </tr>
