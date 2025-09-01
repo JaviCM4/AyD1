@@ -6,7 +6,8 @@ import MyVehiclesView from '@/views/MyVehiclesView.vue'
 import RestoreView from '@/views/RestoreView.vue'
 import UserView from '@/views/UserView.vue'
 import VehicleRegistrationView from '@/views/VehicleRegistrationView.vue'
-import ReportsView from '@/views/ReportsView.vue'
+import CreateWork from '@/views/works/CreateWork.vue'
+import ViewWorks from '@/views/works/ViewWorks.vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
@@ -16,7 +17,7 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
-    },
+    }, 
     {
       path: '/login',
       name: 'login',
@@ -51,12 +52,16 @@ const router = createRouter({
       path: '/restore',
       name: 'restore',
       component: RestoreView,
+    }, 
+    {
+      path: '/works/create',
+      name: 'createWorks',
+      component: CreateWork
     },
     {
-      path: '/reports',
-      name: 'reports',
-      component: ReportsView,
-      //meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'EMPLEADO', 'ESPECIALISTA'] }
+      path: '/works/list',
+      name: 'worksList',
+      component: ViewWorks
     }
   ],
 })
