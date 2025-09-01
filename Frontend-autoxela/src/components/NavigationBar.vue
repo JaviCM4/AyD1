@@ -16,8 +16,10 @@
 
   // Esta en función del rol
   const isAdmin = computed(() => userType.value === 'Administrador')
-  const isMechanic = computed(() => userType.value === 'Mecánico')
+  const isMechanic = computed(() => userType.value === 'Empleado')
   const isCustomer = computed(() => userType.value === 'Cliente')
+  const isEspecialista = computed(() => userType.value === 'Especialista')
+  const isProveedor = computed(() => userType.value === 'Proveedor')
 
   const loadUserData = () => {
     const newUserId = localStorage.getItem('userId') || ''
@@ -237,25 +239,52 @@
                 <v-list-item to="/users" title="Usuarios" prepend-icon="mdi-account-plus" router></v-list-item>
                 
                 <v-divider class="my-2"></v-divider>
-                <v-list-subheader class="text-medium-emphasis">OPERACIONES</v-list-subheader>
-                
-                <v-list-item to="/inventory" title="Inventario" prepend-icon="mdi-package-variant" router></v-list-item>
-                <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
-
+                  <v-list-subheader class="text-medium-emphasis">OPERACIONES</v-list-subheader>
+                  <v-list-item to="/inventory" title="Inventario" prepend-icon="mdi-package-variant" router></v-list-item>
+                  <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
+                  <v-list-item to="/buy" title="Ordenes de Compra" prepend-icon="mdi-cart" router></v-list-item>
+                  <v-list-item to="/mov" title="Movimientos" prepend-icon="mdi-archive" router></v-list-item>
+                  <v-list-item to="/assignment" title="Asignación de Trabajo" prepend-icon="mdi-plus-circle-outline" router></v-list-item>
+                  <v-list-item to="/reports" title="Reportes" prepend-icon="mdi-file" router></v-list-item>
+                  <v-list-item to="/works/list" title="Trabajos Registrados" prepend-icon="mdi-wrench-clock" router></v-list-item>
                 <v-divider class="my-2"></v-divider>
-                <v-list-item to="/works/list" title="Trabajos Registrados" prepend-icon="mdi-wrench-clock" router></v-list-item>
             </template>
 
-            <!-- Opciones para MECÁNICO -->
+            <!-- Opciones para EMPLEADO -->
             <template v-if="isMechanic">
                 <v-list-subheader class="text-orange-accent-2 font-weight-bold">
                     <v-icon class="mr-2">mdi-wrench</v-icon>
-                    PANEL DE MECÁNICO
-
-                    <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
+                    PANEL DE EMPLEADO 
                 </v-list-subheader>
-                
+                  
+                <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
+                <v-list-item to="/reports" title="Reportes" prepend-icon="mdi-file" router></v-list-item>
                 <v-list-item to="/inventory" title="Inventario" prepend-icon="mdi-package-variant" router></v-list-item>
+                <v-list-item to="/buy" title="Ordenes de Compra" prepend-icon="mdi-cart" router></v-list-item>
+            </template>
+
+            <!-- Opciones para ESPECIALISTA -->
+            <template v-if="isEspecialista">
+                <v-list-subheader class="text-orange-accent-2 font-weight-bold">
+                    <v-icon class="mr-2">mdi-account-settings-variant</v-icon>
+                    PANEL DE EMPLEADO 
+                </v-list-subheader>
+                  
+                <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
+                <v-list-item to="/reports" title="Reportes" prepend-icon="mdi-file" router></v-list-item>
+                <v-list-item to="/inventory" title="Inventario" prepend-icon="mdi-package-variant" router></v-list-item>
+                <v-list-item to="/buy" title="Ordenes de Compra" prepend-icon="mdi-cart" router></v-list-item>
+            </template>
+
+
+            <!-- Opciones para PROVEEDOR -->
+            <template v-if="isProveedor">
+                <v-list-subheader class="text-orange-accent-2 font-weight-bold">
+                    <v-icon class="mr-2">mdi-account-network</v-icon>
+                    PANEL DE PROVEEDOR 
+                </v-list-subheader>
+                  
+                <v-list-item to="/buy" title="Ordenes de Compra" prepend-icon="mdi-cart" router></v-list-item>
             </template>
 
             <!-- Opciones para CLIENTE -->

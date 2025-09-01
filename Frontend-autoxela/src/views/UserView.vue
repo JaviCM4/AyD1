@@ -128,17 +128,12 @@ const computedUsers = computed<UserWithFullName[]>(() => {
 })
 
 // Función para obtener el token de autorización
-const getAuthHeaders = (): Record<string, string> | null => {
-  const token = localStorage.getItem('accessToken')
-  if (!token) {
-    errorMessage.value = 'Token de autorización no encontrado'
-    return null
-  }
-  
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('accessToken')
+    return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+    }
 }
 
 // Función para cargar usuarios paginados

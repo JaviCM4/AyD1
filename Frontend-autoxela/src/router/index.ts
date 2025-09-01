@@ -1,8 +1,13 @@
+import AssignmentView from '@/views/AssignmentView.vue'
+import BuyView from '@/views/BuyView.vue'
 import CreateUserView from '@/views/CreateUserView.vue'
+import FacturaView from '@/views/facturaView.vue'
 import HomeView from '@/views/HomeView.vue'
 import InventoryView from '@/views/InventoryView.vue'
 import LoginView from '@/views/LoginView.vue'
+import MovimientosView from '@/views/MovimientosView.vue'
 import MyVehiclesView from '@/views/MyVehiclesView.vue'
+import ReportsView from '@/views/ReportsView.vue'
 import RestoreView from '@/views/RestoreView.vue'
 import UserView from '@/views/UserView.vue'
 import VehicleRegistrationView from '@/views/VehicleRegistrationView.vue'
@@ -88,8 +93,32 @@ const router = createRouter({
       name: 'workordersAddProgress',
       component: TrackWork,
       props: true
+    },
+    {
+      path: '/assignment',
+      name: 'assignment',
+      component: AssignmentView,
+    },
+    {
+      path: '/buy',
+      name: 'buy',
+      component: BuyView,
+    },
+    {
+      path: '/factura',
+      name: 'factura',
+      component: FacturaView,
+    },
+    {
+      path: '/reports',
+      name: 'reports',
+      component: ReportsView,
+    },
+    {
+      path: '/mov',
+      name: 'mov',
+      component: MovimientosView,
     }
   ],
 })
-
 export default router
