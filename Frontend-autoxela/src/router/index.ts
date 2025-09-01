@@ -7,6 +7,7 @@ import RestoreView from '@/views/RestoreView.vue'
 import UserView from '@/views/UserView.vue'
 import VehicleRegistrationView from '@/views/VehicleRegistrationView.vue'
 import CreateVehicle from '@/views/vehicles/CreateVehicle.vue'
+import DetailsVehicle from '@/views/vehicles/DetailsVehicle.vue'
 import CreateWork from '@/views/works/CreateWork.vue'
 import ViewWorks from '@/views/works/ViewWorks.vue'
 import { createRouter, createWebHistory } from 'vue-router'
@@ -73,6 +74,12 @@ const router = createRouter({
       path: '/vehicle/addWork/:vehicleId',
       name: 'addWork',
       component: CreateWork,
+      props: true
+    },
+    {
+      path: '/vehicle/details/:vehicleId',
+      name: 'viewVehicleDetails',
+      component: DetailsVehicle,
       props: true
     }
   ],

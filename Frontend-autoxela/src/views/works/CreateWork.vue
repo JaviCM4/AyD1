@@ -47,7 +47,8 @@ const submitWorkOrder = async () => {
   const res = await fetch(`${API_URL}/api/v1/workorders`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
     },
     body: JSON.stringify(requestBody)
   });

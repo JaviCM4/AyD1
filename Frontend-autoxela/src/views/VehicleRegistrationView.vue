@@ -131,6 +131,9 @@ const addServiceRedirect = (carId: number) => {
    router.push({ name: 'addWork', params: { vehicleId: carId} })
 }
 
+const viewDetailsRedirect = (carId: number) => {
+   router.push({ name: 'viewVehicleDetails', params: { vehicleId: carId} })
+}
 
 
   const closeNewCarDialog = () => {
@@ -329,7 +332,7 @@ const addServiceRedirect = (carId: number) => {
                 </v-chip>
                 <v-spacer></v-spacer>
                 <v-btn small text color="orange darken-2">
-                  Ver Servicios
+                  Ver Opciones
                   <v-icon right>mdi-arrow-right</v-icon>
                 </v-btn>
               </v-card-actions>
@@ -337,7 +340,7 @@ const addServiceRedirect = (carId: number) => {
           </v-col>
         </v-row>
 
-        <!-- Dialog para servicios del carro -->
+        <!-- Dialog para opciones del carro -->
         <v-dialog v-model="showServicesDialog" max-width="800px" persistent>
           <v-card class="dialog-card" v-if="selectedCar">
             <div class="dialog-header">
@@ -359,112 +362,16 @@ const addServiceRedirect = (carId: number) => {
                   Agregar Servicio
                 </v-btn>
               </div>
-
-              <!-- Lista de servicios -->
-              <div class="services-list">
-                <div 
-                  v-for="service in selectedCar.servicios" 
-                  :key="service.id"
-                  class="service-item pa-4 border-bottom"
+              <!-- Botón para ver detalles -->
+              <div class="pa-4 border-bottom">
+                <v-btn 
+                  small
+                  class="custom-btn"
+                  @click="viewDetailsRedirect(selectedCar.id)"
                 >
-                  <div class="d-flex align-center justify-space-between mb-3">
-                    <div>
-                      <div class="d-flex align-center mb-2">
-                        <h4 class="text-h6 font-weight-medium mr-3">{{ service.nombre }}</h4>
-                        <v-chip 
-                          small 
-                          :color="service.tipo === 'Correctivo' ? 'red lighten-1' : 'blue lighten-1'" 
-                          text-color="white"
-                          class="mr-2"
-                        >
-                          {{ service.tipo }}
-                        </v-chip>
-                        <v-chip 
-                          :color="getServiceStatusColor(service.estado)" 
-                          text-color="white"
-                          small
-                        >
-                          {{ service.estado }}
-                        </v-chip>
-                      </div>
-                      <p class="text-body-2 grey--text mb-1">{{ service.descripcion }}</p>
-                      <p class="text-subtitle-2 mb-0"><strong>Precio:</strong> Q{{ service.precio }}</p>
-                    </div>
-                  </div>
-
-                  <!-- Empleados asignados -->
-                  <div class="mb-3">
-                    <p class="text-subtitle-2 font-weight-medium mb-2">Empleados asignados:</p>
-                    <div class="d-flex flex-wrap">
-                      <v-chip 
-                        v-for="empleado in service.empleados" 
-                        :key="empleado.id"
-                        small
-                        class="mr-2 mb-1"
-                        color="blue-grey lighten-1"
-                        text-color="white"
-                      >
-                        <v-icon left small>mdi-account</v-icon>
-                        {{ empleado.nombre }}
-                      </v-chip>
-                      <v-btn 
-                        small
-                        outlined
-                        color="orange darken-2"
-                        @click="openEmployeeSelector(service)"
-                      >
-                        <v-icon left>mdi-account-plus</v-icon>
-                        Asignar
-                      </v-btn>
-                    </div>
-                  </div>
-
-                  <!-- Acciones del servicio -->
-                  <div class="d-flex justify-space-between align-center">
-                    <div>
-                      <v-btn-toggle 
-                        v-model="service.estado" 
-                        mandatory
-                        dense
-                        class="status-toggle"
-                        :disabled="service.pagado || service.cancelado"
-                      >
-                        <v-btn small value="Pendiente" color="orange" :disabled="service.pagado || service.cancelado">
-                          <v-icon>mdi-clock</v-icon>
-                          Pendiente
-                        </v-btn>
-                        <v-btn small value="En proceso" color="blue" :disabled="service.pagado || service.cancelado">
-                          <v-icon>mdi-cog</v-icon>
-                          En proceso
-                        </v-btn>
-                        <v-btn small value="Finalizado" color="green" :disabled="service.pagado || service.cancelado">
-                          <v-icon>mdi-check</v-icon>
-                          Finalizado
-                        </v-btn>
-                      </v-btn-toggle>
-                    </div>
-                    <div class="d-flex gap-2">
-                      <v-btn 
-                        class="custom-btn"
-                        small
-                        @click="processPayment(service)"
-                        :disabled="service.pagado || service.cancelado"
-                      >
-                        <v-icon left>mdi-credit-card</v-icon>
-                        {{ service.pagado ? 'Pagado' : 'Pagar' }}
-                      </v-btn>
-                      <v-btn 
-                        color="red darken-1"
-                        small
-                        @click="cancelService(service)"
-                        :disabled="service.pagado || service.cancelado"
-                      >
-                        <v-icon left>mdi-cancel</v-icon>
-                        {{ service.cancelado ? 'Cancelado' : 'Cancelar' }}
-                      </v-btn>
-                    </div>
-                  </div>
-                </div>
+                  <v-icon left>mdi-plus</v-icon>
+                  Detalles
+                </v-btn>
               </div>
             </v-card-text>
             <v-card-actions class="pa-4">
