@@ -244,6 +244,7 @@
                   <v-list-item to="/vehicle-registration" title="Vehículos Registrados" prepend-icon="mdi-car-multiple" router></v-list-item>
                   <v-list-item to="/buy" title="Ordenes de Compra" prepend-icon="mdi-cart" router></v-list-item>
                   <v-list-item to="/mov" title="Movimientos" prepend-icon="mdi-archive" router></v-list-item>
+                  <v-list-item to="/assignment" title="Asignación de Trabajo" prepend-icon="mdi-plus-circle-outline" router></v-list-item>
                   <v-list-item to="/reports" title="Reportes" prepend-icon="mdi-file" router></v-list-item>
                   <v-list-item to="/works/list" title="Trabajos Registrados" prepend-icon="mdi-wrench-clock" router></v-list-item>
                 <v-divider class="my-2"></v-divider>
