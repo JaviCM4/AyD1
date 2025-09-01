@@ -37,20 +37,9 @@ interface Carro {
 }
 
 // Estado reactivo
-const showNewCarDialog = ref(false)
 const showServicesDialog = ref(false)
-const showNewServiceDialog = ref(false)
-const showEmployeeDialog = ref(false)
-const validForm = ref(false)
 
 const selectedCar = ref<Carro | null>(null)
-const selectedService = ref<Servicio | null>(null)
-const selectedEmployees = ref<Empleado[]>([])
-
-// Reglas de validación
-const rules = {
-  required: (value: string) => !!value || 'Este campo es requerido'
-}
 
 // Datos de carros
 const cars = ref<Carro[]>([])
@@ -119,6 +108,70 @@ const viewDetailsRedirect = (carId: number) => {
   router.push({ name: 'viewVehicleDetails', params: { vehicleId: carId } })
 }
 
+
+/*
+Buscar Vehiculos
+*/
+
+const query = ref("");
+const showSearch = ref(false);
+const vehicles = ref<any[]>([]);
+
+// Función genérica para buscar
+const searchVehicles = async (type: "brand" | "model" | "license-plate" | "color") => {
+  if (!query.value) return;
+
+  let url = `${API_URL}/api/v1/vehicles/search/${type}?`;
+
+  switch (type) {
+    case "brand":
+      url += `brandName=${encodeURIComponent(query.value)}`;
+      break;
+    case "model":
+      url += `modelName=${encodeURIComponent(query.value)}`;
+      break;
+    case "license-plate":
+      url += `licensePlate=${encodeURIComponent(query.value)}`;
+      break;
+    case "color":
+      url += `color=${encodeURIComponent(query.value)}`;
+      break;
+  }
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+      }
+    });
+
+    if (!res.ok) throw new Error(`Error buscando vehículos: ${res.status}`);
+
+    const data = await res.json();
+
+    // Mapear la misma estructura que loadCars
+    cars.value = data.map((car: any) => ({
+      id: car.id,
+      marca: car.model.brand.name,
+      modelo: car.model.name,
+      año: car.model.year,
+      color: car.color,
+      placa: car.licensePlate,
+      chasis: car.vin,
+      motor: car.model.engineSize.size,
+      owner: car.owner,
+      servicios: [] // si quieres agregar más tarde
+    }));
+
+    console.log('Vehículos encontrados:', cars.value);
+
+  } catch (error: any) {
+    console.error('Error al buscar vehículos:', error.message);
+    errorMss.value = error.message || "No se pudieron buscar los vehículos";
+  }
+};
+
 </script>
 
 <template>
@@ -152,6 +205,32 @@ const viewDetailsRedirect = (carId: number) => {
         </v-alert>
 
         <!--Busqueda de vehiculos-->
+        <v-card class="p-4 mb-10">
+          <!-- Título clickeable para colapsar -->
+          <v-card-title class="d-flex justify-space-between align-center" @click="showSearch = !showSearch"
+            style="cursor: pointer;">
+            Buscar Vehículos
+            <v-icon>{{ showSearch ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+          </v-card-title>
+
+          <!-- Contenido colapsable -->
+          <v-expand-transition>
+            <div v-show="showSearch">
+              <v-card-text>
+                <v-text-field v-model="query" label="Ingrese criterio de búsqueda" outlined clearable></v-text-field>
+
+                <div class="d-flex flex-wrap gap-3 mt-3">
+                  <v-btn color="blue" @click="searchVehicles('brand')" class="mr-3">Buscar por Marca</v-btn>
+                  <v-btn color="green" @click="searchVehicles('model')" class="mr-3">Buscar por Modelo</v-btn>
+                  <v-btn color="orange" @click="searchVehicles('license-plate')" class="mr-3">Buscar por Placa</v-btn>
+                  <v-btn color="red" @click="searchVehicles('color')" class="mr-3">Buscar por Color</v-btn>
+
+                  <v-btn color="gray" @click="loadCars()" class="mr-3">Mostrar todos</v-btn>
+                </div>
+              </v-card-text>
+            </div>
+          </v-expand-transition>
+        </v-card>
 
         <!-- Botón para agregar nuevo carro -->
         <v-row class="mb-4">
