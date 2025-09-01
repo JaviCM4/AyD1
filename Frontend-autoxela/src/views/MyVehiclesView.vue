@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Interfaces
 interface Vehicle {
@@ -292,19 +293,6 @@ const calculateTotalRepuestos = (repuestos: Repuesto[]) => {
                   <p class="text-subtitle1 grey--text mb-0">AutoXela - Taller Automotriz</p>
                 </div>
               </div>
-              
-              <!-- Buscador -->
-              <v-text-field
-                v-model="searchQuery"
-                label="Buscar vehículos..."
-                prepend-inner-icon="mdi-magnify"
-                outlined
-                dense
-                clearable
-                hint="Buscar por marca, modelo, placa o propietario"
-                persistent-hint
-                class="search-field"
-              />
             </div>
           </v-col>
         </v-row>
