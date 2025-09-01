@@ -12,6 +12,23 @@ interface ChartData {
   category: string;
 }
 
+interface ReportFile {
+  reportId: string;
+  fileName: string;
+  reportType: string;
+  format: string;
+  fileSize: number;
+  generatedAt: string;
+  expiresAt: string;
+  generatedBy: string;
+  status: string;
+  downloadUrl: string;
+  isExpired: boolean;
+  fileSizeFormatted: string;
+  reportTypeDisplayName: string;
+  formatDisplayName: string;
+}
+
 interface DashboardResponse {
   totalActiveWorks: number;
   totalCompletedWorks: number;
@@ -112,6 +129,9 @@ interface OperationalReport {
 const loading = ref(false);
 const dashboardLoading = ref(false);
 const activeTab = ref("dashboard");
+
+const availableReports = ref<ReportFile[]>([]);
+const reportsLoading = ref(false);
 
 // Dashboard data
 const dashboardData = ref<DashboardResponse | null>(null);
@@ -512,6 +532,90 @@ const clearMessages = () => {
   errorMessage.value = "";
 };
 
+const loadAvailableReports = async () => {
+  reportsLoading.value = true;
+  try {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get("http://localhost:8080/api/v1/reports/available", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    availableReports.value = response.data;
+  } catch (error) {
+    console.error("Error loading available reports:", error);
+    showError("Error al cargar los reportes disponibles");
+  } finally {
+    reportsLoading.value = false;
+  }
+};
+
+const downloadReportFile = async (reportId: string, fileName: string) => {
+  try {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get(
+      `http://localhost:8080/api/v1/reports/download/${reportId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      }
+    );
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    showSuccess(`Descarga iniciada: ${fileName}`);
+  } catch (error) {
+    console.error("Error downloading report:", error);
+    showError("Error al descargar el reporte");
+  }
+};
+
+const deleteReportFile = async (reportId: string) => {
+  if (!confirm("¿Estás seguro de que deseas eliminar este reporte?")) {
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem("accessToken");
+    await axios.delete(
+      `http://localhost:8080/api/v1/reports/delete/${reportId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    showSuccess("Reporte eliminado exitosamente");
+    loadAvailableReports();
+  } catch (error) {
+    console.error("Error deleting report:", error);
+    showError("Error al eliminar el reporte");
+  }
+};
+
+const formatReportDate = (dateString: string) => {
+  return new Date(dateString).toLocaleString('es-GT', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const getReportStatusColor = (status: string) => {
+  switch (status) {
+    case 'COMPLETED': return 'success';
+    case 'PROCESSING': return 'warning';
+    case 'FAILED': return 'error';
+    default: return 'info';
+  }
+};
+
 // ================================
 // LIFECYCLE
 // ================================
@@ -520,6 +624,7 @@ onMounted(() => {
   loadDashboardData();
   loadConfigurations();
   loadReportHistory();
+  loadAvailableReports();
 });
 </script>
 
@@ -661,6 +766,11 @@ onMounted(() => {
             <v-tab value="inventory">
               <v-icon class="mr-2">mdi-package-variant</v-icon>
               Inventario
+            </v-tab>
+
+            <v-tab value="downloads">
+              <v-icon class="mr-2">mdi-download-multiple</v-icon>
+              Descargas
             </v-tab>
           </v-tabs>
 
@@ -1009,6 +1119,124 @@ onMounted(() => {
                 </div>
               </v-card-text>
             </v-window-item>
+
+            <!-- Downloads Tab -->
+            <v-window-item value="downloads">
+              <v-card-text>
+                <div class="downloads-section">
+                  <div class="d-flex align-center mb-4">
+                    <h2 class="text-h5 font-weight-bold">
+                      <v-icon class="mr-2" color="orange darken-2">mdi-download-multiple</v-icon>
+                      Reportes Generados
+                    </h2>
+                    <v-spacer />
+                    <v-btn
+                      color="orange darken-2"
+                      @click="loadAvailableReports"
+                      :loading="reportsLoading"
+                    >
+                      <v-icon left>mdi-refresh</v-icon>
+                      Actualizar
+                    </v-btn>
+                  </div>
+
+                  <!-- Loading State -->
+                  <div v-if="reportsLoading" class="text-center py-8">
+                    <v-progress-circular
+                      indeterminate
+                      color="orange darken-2"
+                      size="60"
+                    ></v-progress-circular>
+                    <p class="mt-4 text-h6">Cargando reportes disponibles...</p>
+                  </div>
+
+                  <!-- Reports Table -->
+                  <div v-else-if="availableReports.length > 0">
+                    <v-card class="elevation-4" rounded="lg">
+                      <v-data-table
+                        :items="availableReports"
+                        :headers="[
+                          { title: 'Tipo de Reporte', value: 'reportTypeDisplayName', sortable: true },
+                          { title: 'Formato', value: 'formatDisplayName', sortable: true },
+                          { title: 'Tamaño', value: 'fileSizeFormatted', sortable: false },
+                          { title: 'Generado', value: 'generatedAt', sortable: true },
+                          { title: 'Generado por', value: 'generatedBy', sortable: true },
+                          { title: 'Estado', value: 'status', sortable: true },
+                          { title: 'Acciones', value: 'actions', sortable: false }
+                        ]"
+                        class="reports-table"
+                        :items-per-page="10"
+                      >
+                        <template v-slot:[`item.generatedAt`]="{ item }">
+                          {{ formatReportDate(item.generatedAt) }}
+                        </template>
+
+                        <template v-slot:[`item.status`]="{ item }">
+                          <v-chip
+                            :color="getReportStatusColor(item.status)"
+                            text-color="white"
+                            small
+                          >
+                            {{ item.status }}
+                          </v-chip>
+                        </template>
+
+                        <template v-slot:[`item.actions`]="{ item }">
+                          <div class="d-flex gap-2">
+                            <v-btn
+                              color="success"
+                              size="small"
+                              @click="downloadReportFile(item.reportId, item.fileName)"
+                              :disabled="item.status !== 'COMPLETED'"
+                            >
+                              <v-icon left size="small">mdi-download</v-icon>
+                              Descargar
+                            </v-btn>
+
+                            <v-btn
+                              color="error"
+                              size="small"
+                              variant="outlined"
+                              @click="deleteReportFile(item.reportId)"
+                            >
+                              <v-icon size="small">mdi-delete</v-icon>
+                            </v-btn>
+                          </div>
+                        </template>
+
+                        <template v-slot:no-data>
+                          <div class="text-center pa-8">
+                            <v-icon size="64" color="grey lighten-1">mdi-file-outline</v-icon>
+                            <h3 class="text-h6 grey--text mt-4 mb-2">No hay reportes disponibles</h3>
+                            <p class="text-body-2 grey--text">
+                              Genera un nuevo reporte desde las pestañas anteriores para verlo aquí
+                            </p>
+                          </div>
+                        </template>
+                      </v-data-table>
+                    </v-card>
+                  </div>
+
+                  <!-- Empty State -->
+                  <div v-else class="text-center py-12">
+                    <v-icon size="80" color="grey lighten-1">mdi-file-outline</v-icon>
+                    <h2 class="text-h5 grey--text mt-4 mb-2">No hay reportes generados</h2>
+                    <p class="text-body-1 grey--text mb-6">
+                      Crea tu primer reporte desde las pestañas de Dashboard, Financiero, Operacional o Inventario
+                    </p>
+                    <v-btn
+                      color="orange darken-2"
+                      size="large"
+                      @click="activeTab = 'dashboard'"
+                    >
+                      <v-icon left>mdi-plus</v-icon>
+                      Generar Reporte
+                    </v-btn>
+                  </div>
+                </div>
+              </v-card-text>
+            </v-window-item>
+
           </v-window>
         </v-card>
       </v-container>
@@ -1514,5 +1742,21 @@ onMounted(() => {
     width: 100%;
     margin-bottom: 8px;
   }
+}
+
+.downloads-section .v-data-table {
+  background: transparent !important;
+}
+
+.stats-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.15) !important;
 }
 </style>
