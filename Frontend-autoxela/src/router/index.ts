@@ -9,6 +9,7 @@ import VehicleRegistrationView from '@/views/VehicleRegistrationView.vue'
 import CreateVehicle from '@/views/vehicles/CreateVehicle.vue'
 import DetailsVehicle from '@/views/vehicles/DetailsVehicle.vue'
 import CreateWork from '@/views/works/CreateWork.vue'
+import TrackWork from '@/views/works/TrackWork.vue'
 import ViewWorks from '@/views/works/ViewWorks.vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
@@ -80,6 +81,12 @@ const router = createRouter({
       path: '/vehicle/details/:vehicleId',
       name: 'viewVehicleDetails',
       component: DetailsVehicle,
+      props: true
+    },
+    {
+      path: '/works/add/progress/:workOrderId',
+      name: 'workordersAddProgress',
+      component: TrackWork,
       props: true
     }
   ],
